@@ -1,0 +1,140 @@
+class Cache(collections.MutableMapping):
+
+    pass
+
+"""
+class StaticPathSegment(str):
+
+    def __new__(cls, string):
+        return cls(string)
+
+class CurlyPathSegment(str):
+
+    def __new__(cls, string):
+        return cls(string)
+
+    def 
+
+def PathSegment(path_segment):
+    starts_with = path_segment[0]
+    ends_with = path_segment[1]
+    if starts_with == '{' and ends_with == '}':
+        return 
+    elif starts_with == '<' and ends_with == '>':
+        return
+    elif starts_with not in '{}<>' and ends_with not in '{}<>':
+        return StaticPathSegment(path_segment)
+    else:
+        raise ValueError()
+"""
+
+class Path:
+
+    '/{segment}/<segment>'
+
+    def __init__(self, segments, starts_with_slash=False, ends_with_slash=False):
+        self.segments = segments
+        self.starts_with_slash = path.startswith('/')
+        self.starts_with_slash = path.endswith('/')
+
+    @classmethod
+    def from_path(cls, path):
+        segments = [PathSegment(path_segment) for path_segment in posixpath.split(path)]
+        starts_with_slash = path.startswith('/')
+        ends_with_slash = path.endswith('/')
+        return cls(segments, starts_with_slash, ends_with_slash)
+
+    @property
+    def length(self):
+        if any(segment for segment in self.segments):
+            return None
+        else:
+            return len(self.segments)
+
+    def __iter__(self):
+        return self.segments.__iter__()
+
+    def __str__(self):
+        path = ('/' if self.starts_with_slash else '') + \
+               '/'.join(self.segments) + \
+               ('/' if self.ends_with_slash else '')
+        return path
+
+    def __repr__(self):
+        return '{}({}, {}, {})'.format(self.__class__, 
+                                       repr(self.segments),
+                                       self.starts_with_slash,
+                                       self.ends_with_slash)
+
+    def __hash__(self):
+        return hash((self.starts_with_slash,
+                     self.segments,
+                     self.ends_with_slash))
+
+
+class Routes(collections.MutableMapping):
+
+    def __init__(self, cache_matches=1e6):
+        if not isinstance(cache_matches, (int, NoneType)):
+            raise TypeError()
+        if cache_matches is None or cache_matches < 0:
+            cache_matches = 0
+        self._cached_matches = Cache(cache_matches)
+        # Index routes added first by metadata, then by
+        # actual path to speed matches.  The metadata is
+        # (path[0], path[1], path[2], path.length).
+        self._path_metadata_to_routes = {}
+
+    def __getitem__(self, key):
+        if isinstance(key, (str, unicode)):
+            path = Path(key)
+        elif isinstance(key, (Path, )):
+            path = key
+        return self._path_to_handler[path]
+
+    def __setitem__(self, key, value):
+        if isinstance(key, (str, unicode)):
+            path = Path(key)
+        elif isinstance(key, (Path, )):
+            path = key
+        else:
+            raise TypeError()
+        if path in self._path_to_handler:
+            raise Warning()
+        if isinstance(value, (types.FunctionType, types.MethodType)):
+            handler = value
+            self._path_to_handler[path] = handler
+        elif isinstance(value, Routes):
+            raise NotImplemented()
+        else:
+            raise TypeError()
+
+    def __delitem__(self, key):
+        del self._path_to_handler[key]
+
+    def __iter__(self):
+        return iter(self._path_to_handler)
+
+    def __len__(self):
+        return len(self._path_to_handler)
+
+    def match(self, path_string):
+        try:
+            return self._cached_matches[path_string]
+        except KeyError:
+            pass
+        # attempt match
+        best_candidate = (None, None, None, None)
+        for match_candidate in self._enumerate_match_candidates(path_string):
+            pass
+
+    def _enumerate_match_candidates(self):
+        path_segments = posixpath.split(path)
+        starts_with_slash = path.startswith('/')
+        ends_with_slash = path.endswith('/')
+        candidates = []
+        key = (len(path_segments), starts_with_slash, ends_with_slash)
+        candidates.extend(self._match_candidates[key])
+        key = (None, starts_with_slash, ends_with_slash)
+        candidates.extend(self._match_candidates[key])
+        return candidates
