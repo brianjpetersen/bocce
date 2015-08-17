@@ -49,7 +49,7 @@ class CurlySegment(object):
         return self.__alias
 
     def __str__(self):
-        return '{{}}'.format(self.alias)
+        return '{{{}}}'.format(self.alias)
 
     def __hash__(self):
         return self._hash
@@ -112,33 +112,31 @@ class Segment(object):
 
 class Path(collections.Sequence):
 
-    def __init__(self, path):
-        self._path = path
+    def __init__(self, segments, starts_with_slash, ends_with_slash):
         # define whether the path starts and ends with slash
-        self._starts_with_slash = path.startswith('/')
-        self._ends_with_slash = path.endswith('/') and len(path) > 1
+        self._starts_with_slash = starts_with_slash
+        self._ends_with_slash = ends_with_slash
         # define _segments, which this Sequence is aliased to
-        naked_segments = path.lstrip('/').rstrip('/').split('/')
-        self._segments = tuple(Segment(segment) for segment in naked_segments)
+        self._segments = tuple(segments)
         # this is an immutable sequence and can be hashed
         self._hash = hash(self._segments)
         # construct an immutable tuple to be used for comparing against other paths
         # (primarily to provide a way to nicely sort a list of paths)
         # for more details, see __eq__
-        self.__comparison_tuple = ((0, self.starts_with_slash), )
+        self._comparison_tuple = ((0, self.starts_with_slash), )
         for segment in self:
             if isinstance(segment, PointySegment):
-                self.__comparison_tuple += ((4, segment.alias), )
+                self._comparison_tuple += ((4, segment.alias), )
             elif isinstance(segment, CurlySegment):
-                self.__comparison_tuple += ((3, segment.alias), )
+                self._comparison_tuple += ((3, segment.alias), )
             elif isinstance(segment, VerbatimSegment):
                 if segment.value != '':
-                    self.__comparison_tuple += ((2, segment.value), )
+                    self._comparison_tuple += ((2, segment.value), )
                 else:
-                    self.__comparison_tuple += ((1, segment.value), )
+                    self._comparison_tuple += ((1, segment.value), )
             else:
                 raise ValueError()
-        self.__comparison_tuple += ((0, self.ends_with_slash), )
+        self._comparison_tuple += ((0, self.ends_with_slash), )
         # check for duplicates among unknown named segments; throw error
         # to prevent ambiguity if so
         unknown_segment_aliases = set()
@@ -148,6 +146,16 @@ class Path(collections.Sequence):
                     raise ValueError()
                 else:
                     unknown_segment_aliases.add(segment.alias)
+
+    @classmethod
+    def from_path(cls, path):
+        # define whether the path starts and ends with slash
+        starts_with_slash = path.startswith('/')
+        ends_with_slash = path.endswith('/') and len(path) > 1
+        # define _segments, which this Sequence is aliased to
+        naked_segments = path.lstrip('/').rstrip('/').split('/')
+        segments = tuple(Segment(segment) for segment in naked_segments)
+        return cls(segments, starts_with_slash, ends_with_slash)
 
     @property
     def starts_with_slash(self):
@@ -159,10 +167,12 @@ class Path(collections.Sequence):
 
     @property
     def path(self):
-        return self._path
+        return '{}{}{}'.format('/' if self.starts_with_slash else '',
+                               '/'.join(map(str, self._segments)),
+                               '/' if self.ends_with_slash else '')
 
     def __str__(self):
-        return self._path
+        return self.path
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__, self.path)
@@ -175,10 +185,6 @@ class Path(collections.Sequence):
 
     def __hash__(self):
         return self._hash
-
-    @property
-    def _comparison_tuple(self):
-        return self.__comparison_tuple
 
     def __eq__(self, other):
         return self._comparison_tuple == other._comparison_tuple
@@ -194,6 +200,23 @@ class Path(collections.Sequence):
 
     def __ge__(self, other):
         return self._comparison_tuple >= other._comparison_tuple
+
+    def __add__(self, other):
+        if not isinstance(other, Path):
+            raise TypeError()
+        starts_with_slash = self.starts_with_slash
+        ends_with_slash = other.ends_with_slash
+        #
+        segments = self._segments + other._segments
+        #print(len(self._segments))
+        """
+        if isinstance(self._segments[0], VerbatimPath):
+            if len(self._segments) == 1:
+                if self._segments[0].value == '':
+                    segments = segments[1:]
+        """
+        cls = self.__class__
+        return cls(segments, starts_with_slash, ends_with_slash)
 
 
 class VerbatimPath(Path):
@@ -211,10 +234,10 @@ class VerbatimPath(Path):
         # construct an immutable tuple to be used for comparing against other paths
         # (primarily to provide a way to nicely sort a list of paths)
         # for more details, see __eq__
-        self.__comparison_tuple = ((5, self.starts_with_slash), )
+        self._comparison_tuple = ((5, self.starts_with_slash), )
         for segment in self:
             if segment.value != '':
-                self.__comparison_tuple += ((2, segment.value), )
+                self._comparison_tuple += ((2, segment.value), )
             else:
-                self.__comparison_tuple += ((1, segment.value), )
-        self.__comparison_tuple += ((5, self.ends_with_slash), )
+                self._comparison_tuple += ((1, segment.value), )
+        self._comparison_tuple += ((5, self.ends_with_slash), )

@@ -21,33 +21,33 @@ ValueError
 
 ```
 
-# Sequence
+# Sequence Attributes and Methods
 
 ```python
 >>> routes = bocce.Routes()
->>> routes['/'] = 'root starting with slash'
->>> routes[''] = 'root starting without slash'
->>> routes['/a/b'] = 'two segments starting with slash'
->>> routes['/a/b/'] = 'two segments starting and ending with slash'
->>> routes['duplicate'] = 'first'
+>>> routes['/'] = '/'
+>>> routes[''] = ''
+>>> routes['/a/b'] = '/a/b'
+>>> routes['/a/b/'] = '/a/b'
+>>> routes['c'] = 'c'
 >>> list(routes)
-['', 'duplicate', '/', '/a/b', '/a/b/']
+['', 'c', '/', '/a/b', '/a/b/']
 >>> len(routes)
 5
->>> routes['duplicate'] = 'second'
+>>> routes['c'] = 'duplicate'
 >>> len(routes)
 5
 >>> routes['/']
-'root starting with slash'
+'/'
 >>> routes['']
-'root starting without slash'
+''
 >>> routes['/a/b']
-'two segments starting with slash'
->>> routes['duplicate']
-'second'
+'/a/b'
+>>> routes['c']
+'duplicate'
 >>> list(routes)
-['', 'duplicate', '/', '/a/b', '/a/b/']
->>> routes['/segment_1']
+['', 'c', '/', '/a/b', '/a/b/']
+>>> routes['/d']
 Traceback (most recent call last):
  ...
 RouteKeyError
@@ -63,11 +63,30 @@ RouteKeyError
 >>> len(routes)
 4
 >>> list(routes)
-['', 'duplicate', '/', '/a/b/']
+['', 'c', '/', '/a/b/']
 
 ```
 
-# Equivalence
+# Cache
+
+```python
+>>> routes = bocce.Routes()
+>>> routes['/a/{b}/c'] = '/a/{b}/c'
+>>> match = routes.match('/a/b/c')
+>>> match.resource
+'/a/{b}/c'
+>>> match.segments
+{'b': 'b'}
+>>> match = routes.match('/a/b/c')
+>>> match.resource
+'/a/{b}/c'
+>>> match.segments
+{'b': 'b'}
+
+```
+
+
+# Equivalent Paths
 
 ```python
 >>> routes = bocce.Routes()
@@ -82,9 +101,16 @@ RouteKeyError
 >>> list(routes)
 ['/{b}', '/<d>']
 
+>>> routes = bocce.Routes(raise_on_duplicate=True)
+>>> routes['/{a}'] = 'a'
+>>> routes['/{b}'] = 'b'
+Traceback (most recent call last):
+ ...
+RouteDuplicateError
+
 ```
 
-# Sorting
+# Sorting Paths
 
 ```python
 >>> routes = bocce.Routes()
@@ -121,38 +147,58 @@ RouteKeyError
 
 ```
 
-# Matching
+# Mounting Routes
+
+```python
+>>> routes_1 = bocce.Routes()
+>>> routes_1['/'] = 'routes_1: /'
+>>> routes_1['/a'] = 'routes_1: /a'
+>>> routes_1['/b'] = 'routes_1: /b'
+>>> routes_1['/a/b'] = 'routes_1: /a/b'
+>>> routes_2 = bocce.Routes()
+>>> routes_2['/'] = 'routes_2: /'
+>>> routes_2['/a'] = 'routes_2: /a'
+>>> routes_2['/b'] = 'routes_2: /b'
+>>> routes_2['/a/b'] = 'routes_2: /a/b'
+>>> routes_2['/c/'] = 'routes_2: /c/'
+>>> routes_2['c/'] = 'routes_2: c/'
+>>> routes = bocce.Routes()
+>>> routes['/a'] = routes_1
+
+```
+
+# Matching Paths
 
 ```python
 >>> routes = bocce.Routes()
 >>> routes[''] = ''
 >>> match = routes.match('')
->>> match.handler
+>>> match.resource
 ''
 >>> match = routes.match('/')
 >>> isinstance(match, bocce.routing.Mismatch)
 True
->>> match.handler is None
+>>> match.resource is None
 True
 
 >>> routes = bocce.Routes()
 >>> routes['a/'] = 'a/'
 >>> match = routes.match('a/')
->>> match.handler
+>>> match.resource
 'a/'
 >>> match = routes.match('a')
 >>> isinstance(match, bocce.routing.Mismatch)
 True
->>> match.handler is None
+>>> match.resource is None
 True
 
 >>> routes = bocce.Routes()
 >>> routes['<a>'] = '<a>'
 >>> match = routes.match('')
->>> match.handler
+>>> match.resource
 '<a>'
 >>> match = routes.match('a')
->>> match.handler
+>>> match.resource
 '<a>'
 >>> match.segments
 {'a': ['a']}
@@ -165,17 +211,17 @@ True
 >>> routes['{a}/{b}'] = '{a}/{b}'
 >>> routes['<a>'] = '<a>'
 >>> match = routes.match('a/b')
->>> match.handler
+>>> match.resource
 'a/{b}'
 >>> match.segments
 {'b': 'b'}
 >>> match = routes.match('b/c')
->>> match.handler
+>>> match.resource
 '{a}/{b}'
 >>> match.segments
 {'a': 'b', 'b': 'c'}
 >>> match = routes.match('a/b/c')
->>> match.handler
+>>> match.resource
 '<a>'
 >>> match.segments
 {'a': ['a', 'b', 'c']}
@@ -184,12 +230,12 @@ True
 >>> routes['{a}/b'] = '{a}/b'
 >>> routes['a/{b}'] = 'a/{b}'
 >>> match = routes.match('a/b')
->>> match.handler
+>>> match.resource
 'a/{b}'
 >>> match.segments
 {'b': 'b'}
 >>> match = routes.match('b/b')
->>> match.handler
+>>> match.resource
 '{a}/b'
 >>> match.segments
 {'a': 'b'}
@@ -203,28 +249,27 @@ True
 >>> isinstance(match, bocce.routing.Mismatch)
 True
 >>> match = routes.match('a')
->>> match.handler
+>>> match.resource
 'a'
 >>> match = routes.match('a/b')
->>> match.handler
+>>> match.resource
 '<a>'
 >>> match.segments
 {'a': ['a', 'b']}
 >>> match = routes.match('a/b/2/z')
->>> match.handler
+>>> match.resource
 '<a>/2/z'
 >>> match.segments
 {'a': ['a', 'b']}
 >>> match = routes.match('a/b/2/y/z')
->>> match.handler
+>>> match.resource
 '<a>/2/<z>'
 >>> match.segments
 {'a': ['a', 'b'], 'z': ['y', 'z']}
 >>> match = routes.match('a/b/.../y/z')
->>> match.handler
+>>> match.resource
 '<a>'
 >>> match.segments
 {'a': ['a', 'b', '...', 'y', 'z']}
-
 
 ```
