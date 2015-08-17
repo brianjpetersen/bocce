@@ -162,8 +162,23 @@ RouteDuplicateError
 >>> routes_2['/a/b'] = 'routes_2: /a/b'
 >>> routes_2['/c/'] = 'routes_2: /c/'
 >>> routes_2['c/'] = 'routes_2: c/'
+
 >>> routes = bocce.Routes()
->>> routes['/a'] = routes_1
+>>> routes[''] = routes_1
+>>> routes['/routes_2'] = routes_2
+>>> print(list(routes))
+['', 'a', 'a/b', 'b', '/', '/a', '/a/b', '/b', '/c/']
+>>> for path in routes:
+...     print(path, routes[path])
+('', 'routes_1: /')
+('a', 'routes_1: /a')
+('a/b', 'routes_1: /a/b')
+('b', 'routes_1: /b')
+('/', 'routes_2: /')
+('/a', 'routes_2: /a')
+('/a/b', 'routes_2: /a/b')
+('/b', 'routes_2: /b')
+('/c/', 'routes_2: c/')
 
 ```
 

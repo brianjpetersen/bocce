@@ -193,9 +193,9 @@ class Routes(collections.MutableMapping):
         if not isinstance(cache, (int, float, type(None))):
             raise TypeError()
         if cache is None:
-            self.__cache = None
+            self._cache = None
         else:
-            self.__cache = caching.LRUCache(cache)
+            self._cache = caching.LRUCache(cache)
         # whether to raise an exception on a duplicate
         self.raise_on_duplicate = raise_on_duplicate
 
@@ -274,7 +274,7 @@ class Routes(collections.MutableMapping):
 
     @property
     def cache(self):
-        return self.__cache
+        return self._cache
 
     def match(self, path_to_match_string):
         # check cache for *very* quick match

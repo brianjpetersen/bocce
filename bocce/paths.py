@@ -28,6 +28,10 @@ class VerbatimSegment(object):
     def __str__(self):
         return self.value
 
+    def __repr__(self):
+        return '{}(value={})'.format(self.__class__.__name__,
+                                     repr(self.value))
+
     def __eq__(self, other):
         if isinstance(other, VerbatimSegment):
             return self.value == other.value
@@ -50,6 +54,10 @@ class CurlySegment(object):
 
     def __str__(self):
         return '{{{}}}'.format(self.alias)
+
+    def __repr__(self):
+        return '{}(alias={})'.format(self.__class__.__name__,
+                                     repr(self.alias))
 
     def __hash__(self):
         return self._hash
@@ -79,6 +87,10 @@ class PointySegment(object):
 
     def __hash__(self):
         return self._hash
+
+    def __repr__(self):
+        return '{}(alias={})'.format(self.__class__.__name__,
+                                     repr(self.alias))
 
     def __eq__(self, other):
         if isinstance(other, (PointySegment, VerbatimSegment)):
@@ -206,15 +218,17 @@ class Path(collections.Sequence):
             raise TypeError()
         starts_with_slash = self.starts_with_slash
         ends_with_slash = other.ends_with_slash
-        #
-        segments = self._segments + other._segments
-        #print(len(self._segments))
-        """
-        if isinstance(self._segments[0], VerbatimPath):
-            if len(self._segments) == 1:
-                if self._segments[0].value == '':
-                    segments = segments[1:]
-        """
+        # handle special case where we mount against '/' or ''
+        other_is_root = other._segments[0] == VerbatimSegment('') and len(other._segments) == 1 
+        self_is_root = self._segments[0] == VerbatimSegment('') and len(self._segments) == 1
+        if self_is_root and other_is_root:
+            segments = (VerbatimSegment(''), )
+        elif self_is_root:
+            segments = other._segments
+        elif other_is_root:
+            segments = self._segments
+        else:
+            segments = self._segments + other._segments
         cls = self.__class__
         return cls(segments, starts_with_slash, ends_with_slash)
 
