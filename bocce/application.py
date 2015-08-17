@@ -33,10 +33,13 @@ class Application:
         try:
             request = requests.Request(environ)
             route = self.routes.match(request.path)
-            if isinstance(route, routing.Mismatch):
+            if isinstance(route, routing.Detour):
                 raise exceptions.HTTPNotFound()
-            with route.Resource(request, route) as resource:
+            resource = route.Resource(request, route)
+            with resource:
                 response = resource(request)
+
+
 
         except exceptions.HTTPException as response:
             # TK: get response from configuration

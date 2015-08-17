@@ -204,11 +204,11 @@ class Routes(collections.MutableMapping):
         elif isinstance(key, (paths.Path, )):
             path = key
         # traverse nodes
-        branch = self._routes
+        routes = self._routes
         try:
             for segment in path:
-                branch = branch[segment]
-            _, resource, _ = branch[path.ends_with_slash]
+                routes = routes[segment]
+            _, resource, _ = routes[path.ends_with_slash]
         except KeyError:
             raise RouteKeyError()
         return resource
@@ -232,33 +232,33 @@ class Routes(collections.MutableMapping):
         # iteratively add paths and resources
         for path, resource in zip(paths_to_set, resources_to_set):
             # traverse nodes
-            branch = self._routes
+            routes = self._routes
             for segment in path:
                 try:
-                    branch = branch[segment]
+                    routes = routes[segment]
                 except KeyError:
-                    branch[segment] = branch = {}
+                    routes[segment] = routes = {}
             # remove any previously set path from keys
-            path_previously_set = path.ends_with_slash in branch
+            path_previously_set = path.ends_with_slash in routes
             if path_previously_set:
                 if self.raise_on_duplicate:
                     raise RouteDuplicateError()
-                previously_set_path, _, _ = branch[path.ends_with_slash]
+                previously_set_path, _, _ = routes[path.ends_with_slash]
                 self._paths.remove(previously_set_path)
             # add new path
             self._paths.append(path)
-            branch[path.ends_with_slash] = (path, resource, self._current_priority)
+            routes[path.ends_with_slash] = (path, resource, self._current_priority)
             self._current_priority += 1
         
     def __delitem__(self, key):
         # pre-process inputs
         path = paths.Path.from_path(key)
-        branch = self._routes
+        routes = self._routes
         # traverse nodes
         try:
             for segment in path:
-                branch = branch[segment]
-            del branch[path.ends_with_slash]
+                routes = routes[segment]
+            del routes[path.ends_with_slash]
             self._paths.remove(path)
         except KeyError:
             raise RouteKeyError()
