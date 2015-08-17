@@ -8,7 +8,7 @@ import traceback
 import webob
 import waitress
 # first party libraries
-from . import (exceptions, routing, )
+from . import (exceptions, routing, requests, )
 
 
 __all__ = ('Application', '__where__', )
@@ -31,14 +31,13 @@ class Application:
 
     def __call__(self, environ, start_response):
         try:
-            exception_traceback = None
-            request = webob.Request(environ)
-            response = webob.Response()
-            match = self.routes.match(request.path)
-            if isinstance(match, routing.Mismatch):
+            request = requests.Request(environ)
+            route = self.routes.match(request.path)
+            if isinstance(route, routing.Mismatch):
                 raise exceptions.HTTPNotFound()
-            handler = match.Handler(request, response)
-            handler(**match.segments)
+            with route.Resource(request, route) as resource:
+                response = resource(request)
+
         except exceptions.HTTPException as response:
             # TK: get response from configuration
             exception_traceback = traceback.format_exc()

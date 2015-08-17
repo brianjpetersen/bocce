@@ -26,27 +26,26 @@ ValueError
 ```python
 >>> routes = bocce.Routes()
 >>> routes['/'] = '/'
->>> routes[''] = ''
 >>> routes['/a/b'] = '/a/b'
 >>> routes['/a/b/'] = '/a/b'
 >>> routes['c'] = 'c'
 >>> list(routes)
-['', 'c', '/', '/a/b', '/a/b/']
+['/', '/a/b', '/a/b/', '/c']
 >>> len(routes)
-5
+4
 >>> routes['c'] = 'duplicate'
 >>> len(routes)
-5
+4
 >>> routes['/']
 '/'
 >>> routes['']
-''
+'/'
 >>> routes['/a/b']
 '/a/b'
 >>> routes['c']
 'duplicate'
 >>> list(routes)
-['', 'c', '/', '/a/b', '/a/b/']
+['/', '/a/b', '/a/b/', '/c']
 >>> routes['/d']
 Traceback (most recent call last):
  ...
@@ -61,9 +60,9 @@ Traceback (most recent call last):
  ...
 RouteKeyError
 >>> len(routes)
-4
+3
 >>> list(routes)
-['', 'c', '/', '/a/b/']
+['/', '/a/b/', '/c']
 
 ```
 
@@ -84,7 +83,6 @@ RouteKeyError
 {'b': 'b'}
 
 ```
-
 
 # Equivalent Paths
 
@@ -114,71 +112,30 @@ RouteDuplicateError
 
 ```python
 >>> routes = bocce.Routes()
->>> routes['/'] = None
+>>> routes[''] = None
 >>> routes['/a'] = None
 >>> routes['/c'] = None
 >>> routes['/c/'] = None
 >>> routes['/a/'] = None
 >>> routes['/a/b'] = None
 >>> routes['/a/b/'] = None
->>> routes[''] = None
->>> routes['a'] = None
->>> routes['b/'] = None
->>> routes['a/b'] = None
->>> routes['a/b/'] = None
+>>> routes['a/{b}'] = None
 >>> routes['a/{b}/'] = None
+>>> routes['a/<b>'] = None
 >>> routes['a/<b>/'] = None
 >>> for path in routes:
 ...     print(repr(path))
-''
-'a'
-'a/b'
-'a/b/'
-'a/{b}/'
-'a/<b>/'
-'b/'
 '/'
 '/a'
 '/a/'
 '/a/b'
 '/a/b/'
+'/a/{b}'
+'/a/{b}/'
+'/a/<b>'
+'/a/<b>/'
 '/c'
 '/c/'
-
-```
-
-# Mounting Routes
-
-```python
->>> routes_1 = bocce.Routes()
->>> routes_1['/'] = 'routes_1: /'
->>> routes_1['/a'] = 'routes_1: /a'
->>> routes_1['/b'] = 'routes_1: /b'
->>> routes_1['/a/b'] = 'routes_1: /a/b'
->>> routes_2 = bocce.Routes()
->>> routes_2['/'] = 'routes_2: /'
->>> routes_2['/a'] = 'routes_2: /a'
->>> routes_2['/b'] = 'routes_2: /b'
->>> routes_2['/a/b'] = 'routes_2: /a/b'
->>> routes_2['/c/'] = 'routes_2: /c/'
->>> routes_2['c/'] = 'routes_2: c/'
-
->>> routes = bocce.Routes()
->>> routes[''] = routes_1
->>> routes['/routes_2'] = routes_2
->>> print(list(routes))
-['', 'a', 'a/b', 'b', '/', '/a', '/a/b', '/b', '/c/']
->>> for path in routes:
-...     print(path, routes[path])
-('', 'routes_1: /')
-('a', 'routes_1: /a')
-('a/b', 'routes_1: /a/b')
-('b', 'routes_1: /b')
-('/', 'routes_2: /')
-('/a', 'routes_2: /a')
-('/a/b', 'routes_2: /a/b')
-('/b', 'routes_2: /b')
-('/c/', 'routes_2: c/')
 
 ```
 
@@ -191,10 +148,8 @@ RouteDuplicateError
 >>> match.resource
 ''
 >>> match = routes.match('/')
->>> isinstance(match, bocce.routing.Mismatch)
-True
->>> match.resource is None
-True
+>>> match.resource
+''
 
 >>> routes = bocce.Routes()
 >>> routes['a/'] = 'a/'
@@ -202,7 +157,7 @@ True
 >>> match.resource
 'a/'
 >>> match = routes.match('a')
->>> isinstance(match, bocce.routing.Mismatch)
+>>> isinstance(match, bocce.routing.Detour)
 True
 >>> match.resource is None
 True
@@ -261,8 +216,8 @@ True
 >>> routes['<a>/2/z'] = '<a>/2/z'
 >>> routes['<a>/2/<z>'] = '<a>/2/<z>'
 >>> match = routes.match('/')
->>> isinstance(match, bocce.routing.Mismatch)
-True
+>>> match.resource
+'<a>'
 >>> match = routes.match('a')
 >>> match.resource
 'a'
@@ -287,4 +242,58 @@ True
 >>> match.segments
 {'a': ['a', 'b', '...', 'y', 'z']}
 
+```
+
+# Mounting Routes
+
+```python
+>>> routes_1 = bocce.Routes()
+>>> routes_1['/'] = 'routes_1: /'
+>>> routes_1['/a'] = 'routes_1: /a'
+>>> routes_1['/b'] = 'routes_1: /b'
+>>> routes_1['/a/b'] = 'routes_1: /a/b'
+>>> routes_2 = bocce.Routes()
+>>> routes_2['/'] = 'routes_2: /'
+>>> routes_2['/a'] = 'routes_2: /a'
+>>> routes_2['/b'] = 'routes_2: /b'
+>>> routes_2['/a/b'] = 'routes_2: /a/b'
+>>> routes_2['/c/'] = 'routes_2: /c/'
+>>> routes_2['c'] = 'routes_2: c'
+
+>>> routes = bocce.Routes()
+>>> routes['/routes_1'] = routes_1
+>>> routes['/routes_2'] = routes_2
+>>> for path in routes:
+...     print(path, routes[path])
+('/routes_1', 'routes_1: /')
+('/routes_1/a', 'routes_1: /a')
+('/routes_1/a/b', 'routes_1: /a/b')
+('/routes_1/b', 'routes_1: /b')
+('/routes_2', 'routes_2: /')
+('/routes_2/a', 'routes_2: /a')
+('/routes_2/a/b', 'routes_2: /a/b')
+('/routes_2/b', 'routes_2: /b')
+('/routes_2/c', 'routes_2: c')
+('/routes_2/c/', 'routes_2: /c/')
+
+>>> routes = bocce.Routes()
+>>> routes[''] = routes_2
+>>> for path in routes:
+...     print(path, routes[path])
+('/', 'routes_2: /')
+('/a', 'routes_2: /a')
+('/a/b', 'routes_2: /a/b')
+('/b', 'routes_2: /b')
+('/c', 'routes_2: c')
+('/c/', 'routes_2: /c/')
+>>> routes['/'] = routes_1
+>>> for path in routes:
+...     print(path, routes[path])
+('/', 'routes_1: /')
+('/a', 'routes_1: /a')
+('/a/b', 'routes_1: /a/b')
+('/b', 'routes_1: /b')
+('/c', 'routes_2: c')
+('/c/', 'routes_2: /c/')
+    
 ```

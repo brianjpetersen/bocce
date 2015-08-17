@@ -8,11 +8,11 @@ pass
 from . import (paths, caching, )
 
 
-__all__ = ('Routes', 'Match', 'Mismatch', '__where__', )
+__all__ = ('Routes', 'Route', 'Detour', '__where__', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-class Match(object):
+class Route(object):
 
     def __init__(self, path, resource, priority, segments):
         self._path = path
@@ -91,7 +91,7 @@ class Match(object):
         return self._comparison_tuple >= other._comparison_tuple
 
 
-class Mismatch(Match):
+class Detour(Route):
 
     def __init__(self):
         self._path = None
@@ -104,7 +104,7 @@ class Mismatch(Match):
         self._number_verbatim_segments = 0
 
 
-mismatch = Mismatch()
+detour = Detour()
 
 
 def copy_list(a):
@@ -115,21 +115,21 @@ def copy_list(a):
     return a[:]
 
 
-class PotentialMatch(object):
+class PotentialRoute(object):
 
-    def __init__(self, path, parent, children, depth=0, matched_segments=None):
+    def __init__(self, path, parent, children, depth=0, segments=None):
         self.parent = parent
         self.children = children
         self.path = path
         self.depth = depth
-        if matched_segments is None:
-            matched_segments = []
-        self.matched_segments = matched_segments
+        if segments is None:
+            segments = []
+        self.segments = segments
 
     def descend(self):
         parent = self.parent
         children = self.children
-        matched_segments = self.matched_segments
+        segments = self.segments
         path = self.path
         depth = self.depth
         # attempt to get the current path_segment; if there's an IndexError,
@@ -142,33 +142,33 @@ class PotentialMatch(object):
                 # in most cases, children is a dict-of-dicts;
                 # in this case, children are the match details
                 path, resource, priority = children
-                match = Match(path, resource, priority, matched_segments)
-                return match, []
+                route = Route(path, resource, priority, segments)
+                return route, []
             # there is no match, and there are no additional potential matches 
             # that can be made against this path_to_match
             else:
-                return mismatch, []
+                return detour, []
         # check if the parent matches the path, and if so then add
         # the children to a list of potential matches among the descendents
-        potential_descendent_matches = []
+        potential_descendent_routes = []
         if parent == path_segment:
-            matched_segments.append((parent, path_segment))
+            segments.append((parent, path_segment))
             depth += 1
             # all the chidren are potential matches
             for child in children:
                 grandchildren = children[child]
-                matched_segments_copy = copy_list(matched_segments)
-                potential_match = PotentialMatch(path, child, grandchildren, 
-                                                 depth, matched_segments_copy)
-                potential_descendent_matches.append(potential_match)
+                segments_copy = copy_list(segments)
+                potential_route = PotentialRoute(path, child, grandchildren, 
+                                                 depth, segments_copy)
+                potential_descendent_routes.append(potential_route)
             # additionally, if the parent is a PointySegment, the parent still
             # remains a potential match
             if isinstance(parent, paths.PointySegment):
-                matched_segments_copy = copy_list(matched_segments)
-                potential_match = PotentialMatch(path, parent, children, 
-                                                 depth, matched_segments_copy)
-                potential_descendent_matches.append(potential_match)
-        return mismatch, potential_descendent_matches
+                segments_copy = copy_list(segments)
+                potential_route = PotentialRoute(path, parent, children, 
+                                                 depth, segments_copy)
+                potential_descendent_routes.append(potential_route)
+        return detour, potential_descendent_routes
 
 
 class RouteKeyError(KeyError):
@@ -185,8 +185,6 @@ class Routes(collections.MutableMapping):
 
     def __init__(self, cache=1e6, raise_on_duplicate=False):
         self._routes = {}
-        self._routes[True] = {}
-        self._routes[False] = {}
         self._paths = []
         self._current_priority = 0
         # setup cache
@@ -206,7 +204,7 @@ class Routes(collections.MutableMapping):
         elif isinstance(key, (paths.Path, )):
             path = key
         # traverse nodes
-        branch = self._routes[path.starts_with_slash]
+        branch = self._routes
         try:
             for segment in path:
                 branch = branch[segment]
@@ -234,7 +232,7 @@ class Routes(collections.MutableMapping):
         # iteratively add paths and resources
         for path, resource in zip(paths_to_set, resources_to_set):
             # traverse nodes
-            branch = self._routes[path.starts_with_slash]
+            branch = self._routes
             for segment in path:
                 try:
                     branch = branch[segment]
@@ -255,7 +253,7 @@ class Routes(collections.MutableMapping):
     def __delitem__(self, key):
         # pre-process inputs
         path = paths.Path.from_path(key)
-        branch = self._routes[path.starts_with_slash]
+        branch = self._routes
         # traverse nodes
         try:
             for segment in path:
@@ -284,20 +282,19 @@ class Routes(collections.MutableMapping):
         # no quick match unfortunately; pre-process input
         path_to_match = paths.VerbatimPath(path_to_match_string)
         # gather root potential matches
-        starts_with_slash = path_to_match.starts_with_slash
-        potential_matches = []
-        for parent, children in self._routes[starts_with_slash].items():
-            potential_match = PotentialMatch(path_to_match, parent, children)
-            potential_matches.append(potential_match)
+        potential_routes = []
+        for parent, children in self._routes.items():
+            potential_route = PotentialRoute(path_to_match, parent, children)
+            potential_routes.append(potential_route)
         # find best match
-        best_match = Mismatch()
-        while potential_matches:
-            potential_match = potential_matches.pop()
-            match, potential_descendent_matches = potential_match.descend()
-            potential_matches.extend(potential_descendent_matches)
-            if match > best_match:
-                best_match = match
+        best_route = detour
+        while potential_routes:
+            potential_route = potential_routes.pop()
+            route, potential_descendent_routes = potential_route.descend()
+            potential_routes.extend(potential_descendent_routes)
+            if route > best_route:
+                best_route = route
         # cache the match
         if self.cache is not None:
-            self.cache[path_to_match_string] = best_match
-        return best_match
+            self.cache[path_to_match_string] = route
+        return route
