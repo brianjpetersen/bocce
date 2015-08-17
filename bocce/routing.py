@@ -296,5 +296,5 @@ class Routes(collections.MutableMapping):
                 best_route = route
         # cache the match
         if self.cache is not None:
-            self.cache[path_to_match_string] = route
-        return route
+            self.cache[path_to_match_string] = best_route
+        return best_route
