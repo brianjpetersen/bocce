@@ -6,18 +6,6 @@ pass
 # first party libraries
 pass
 
-import bocce
-doctest.testfile('routing.md')
-#doctest.testfile('resources.md')
-"""
-routes = bocce.Routes()
-routes['a/{b}'] = 'a/{b}'
-routes['{a}/{b}'] = '{a}/{b}'
-routes['<a>'] = '<a>'
-match = routes.match('a/b')
 
-print(match.resource)
-'a/{b}'
-print(match.segments)
-{'b': 'b'}
-"""
+doctest.testfile('routing.md', optionflags=doctest.ELLIPSIS)
+doctest.testfile('application.md', optionflags=doctest.ELLIPSIS)
