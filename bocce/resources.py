@@ -18,7 +18,7 @@ class Resource(object):
 
     @classmethod
     def configure(cls, configuration):
-        pass
+        cls.configuration = configuration
 
     @classmethod
     def wsgify(cls, environ, start_response):
@@ -28,7 +28,7 @@ class Resource(object):
             response = handler(**kwargs)
         return response(environ, start_response)
 
-    def __call__(self):
+    def __call__(self, **kwargs):
         response = responses.Response()
         return response
 

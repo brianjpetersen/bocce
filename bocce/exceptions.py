@@ -13,41 +13,47 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 
 class Response(responses.Response, Exception):
 
-    def __init__(self, status):
-        responses.Response.__init__(self)
-        self.status = status
+    @classmethod
+    def configure(cls, configuration):
+        pass
+
+    def __init__(self):
+        super(Response, self).__init__()
 
 
-class NotFound(Response):
+class NotFoundResponse(Response):
 
-    def __init__(self, request, route):
-        Response.__init__(self, '404 Not Found')
+    def __init__(self, request):
+        super(NotFoundResponse, self).__init__()
+        self.status = '404 Not Found'
 
 
-class ServerError(responses.Response, Exception):
+class ServerErrorResponse(Response):
 
-    def __init__(self, request, route, exception):
-        responses.Response.__init__(self)
+    def __init__(self, request, exception):
+        super(ServerErrorResponse, self).__init__()
         self.exception = exception
         self.status = '500 Internal Server Error'
 
 
-class DebugServerError(ServerError):
+class DebugServerErrorResponse(ServerErrorResponse):
 
-    def __init__(self, request, route, exception):
-        ServerError.__init__(self, request, route, exception)
+    def __init__(self, request, exception):
+        super(DebugServerErrorResponse, self).__init__(request, exception)
         self.body = exception['traceback']
 
 
 # deprecate?
 
-class MethodNotAllowed(Response):
+class MethodNotAllowedResponse(Response):
 
     def __init__(self):
-        Response.__init__(self, '405 Method Not Allowed')
+        super(MethodNotAllowedResponse, self).__init__()
+        self.status = '405 Method Not Allowed'
 
 
-class BadRequest(Response):
+class BadRequestResponse(Response):
 
     def __init__(self):
-        Response.__init__(self, '400 Bad Request')
+        super(BadRequestResponse, self).__init__()
+        self.status = '400 Bad Request'

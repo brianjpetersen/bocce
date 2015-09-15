@@ -37,28 +37,27 @@ class Application:
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
         # exception resources
-        self.exception_responses = {}
-        self.not_found_handler = exceptions.NotFound
-        self.server_error_handler = exceptions.ServerError
+        self.not_found_handler = exceptions.NotFoundResponse
+        self.server_error_handler = exceptions.ServerErrorResponse
+        # allow subclassing of Response class
+        self.RequestClass = requests.Request
 
     def __call__(self, environ, start_response):
         try:
-            request = requests.Request(environ)
-            route = self.routes.match(request.path)
+            request = self.RequestClass(environ)
+            route = request.route = self.routes.match(request.path)
             if isinstance(route, routing.Detour):
-                Response = self.not_found_handler
-                raise Response(request, route)
+                raise self.not_found_handler(request)
             resource = route.resource(request, route)
             with resource as (handler, kwargs):
                 response = handler(**kwargs)
         except exceptions.Response as response:
             pass
         except:
-            Response = self.server_error_handler
             exception = {}
             exception['type'], exception['value'], _ = sys.exc_info()
             exception['traceback'] = traceback.format_exc()
-            response = Response(request, route, exception)
+            response = self.server_error_handler(request, exception)
         finally:
             self.log(request, response)
             return response(environ, start_response)
@@ -68,9 +67,17 @@ class Application:
         for path in self.routes:
             Route = self.routes[path]
             routes[id(Route)] = Route
+        do_nothing = lambda configuration: None
         for Route in routes.values():
-            configure = getattr(Route, 'configure', lambda configuration: None)
+            configure = getattr(Route, 'configure', do_nothing)
             configure(self.configuration)
+        for handler in (self.not_found_handler, self.server_error_handler):
+            try:
+                configure = getattr(handler, 'configure', do_nothing)
+                configure(self.configuration)
+            except:
+                pass
+        
 
     def log(self, request, response):
         # collect details from request, response, and exception traceback (if any)
