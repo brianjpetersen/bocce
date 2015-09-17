@@ -77,7 +77,6 @@ class Application:
                 configure(self.configuration)
             except:
                 pass
-        
 
     def log(self, request, response):
         # collect details from request, response, and exception traceback (if any)
