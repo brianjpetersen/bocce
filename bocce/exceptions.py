@@ -3,57 +3,63 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (responses, )
+from . import (resources, responses, )
 
 
-__all__ = ('Response', 'NotFound', 'MethodNotAllowed', 'ServerError', 
-           'BadRequest', 'DebugServerError', '__where__', )
+__all__ = (
+    '__where__', 
+    'NotFound',
+    'ServerError',
+    'BadRequest',
+    'DebugServerError',
+)
+
+
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
 class Response(responses.Response, Exception):
-
-    @classmethod
-    def configure(cls, configuration):
-        pass
-
+    
     def __init__(self):
         super(Response, self).__init__()
 
 
-class NotFoundResponse(Response):
+class Resource(resources.Resource, Exception):
+    
+    def __init__(self, request, route):
+        super(Resource, self).__init__(request, route)
+
+
+class NotFoundResource(Resource):
 
     def __init__(self, request):
-        super(NotFoundResponse, self).__init__()
-        self.status = '404 Not Found'
+        super(NotFoundResource, self).__init__(request, None)
+        
+    def __call__(self):
+        response = responses.Response()
+        response.status = '404 Not Found'
+        return response
 
 
-class ServerErrorResponse(Response):
+class ServerErrorResource(Resource):
 
     def __init__(self, request, exception):
-        super(ServerErrorResponse, self).__init__()
+        super(ServerErrorResource, self).__init__(request, None)
         self.exception = exception
-        self.status = '500 Internal Server Error'
+        
+    def __call__(self):
+        response = responses.Response()
+        response.status = '500 Internal Server Error'
+        return response
 
 
-class DebugServerErrorResponse(ServerErrorResponse):
-
+class DebugServerErrorResource(ServerErrorResource):
+    
     def __init__(self, request, exception):
-        super(DebugServerErrorResponse, self).__init__(request, exception)
-        self.body = exception['traceback']
-
-
-# deprecate?
-
-class MethodNotAllowedResponse(Response):
-
-    def __init__(self):
-        super(MethodNotAllowedResponse, self).__init__()
-        self.status = '405 Method Not Allowed'
-
-
-class BadRequestResponse(Response):
-
-    def __init__(self):
-        super(BadRequestResponse, self).__init__()
-        self.status = '400 Bad Request'
+        super(DebugServerErrorResource, self).__init__(request, exception)
+        
+    def __call__(self):
+        response = responses.Response()
+        response.status = '500 Internal Server Error'
+        response.body = self.exception['traceback']
+        return response

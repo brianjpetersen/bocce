@@ -15,11 +15,13 @@
 ...     
 ...     def __call__(self, name, salutation):
 ...         if name in self.corny_names:
-...             response = bocce.exceptions.BadRequestResponse()
+...             response = bocce.exceptions.Response()
+...             response.status = '400 Bad Request'
 ...             response.body = 'I find your lack of originality disturbing.'
 ...             raise response
 ...         if self.request.method != 'GET':
-...             response = bocce.exceptions.MethodNotAllowedResponse()
+...             response = bocce.exceptions.Response()
+...             response.status = '405 Method Not Allowed'
 ...             raise response
 ...         response = bocce.Response()
 ...         if name == '':
@@ -119,7 +121,7 @@ I find your lack of originality disturbing.
 Content-Type: text/html; charset=UTF-8
 Content-Length: 0
 
->>> application.server_error_handler = bocce.exceptions.DebugServerErrorResponse
+>>> application.server_error_resource = bocce.exceptions.DebugServerErrorResource
 >>> request = bocce.Request.blank('/whoops')
 >>> response = request.get_response(application)
 >>> print(response)

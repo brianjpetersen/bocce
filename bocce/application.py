@@ -13,7 +13,7 @@ import waitress
 from . import (exceptions, routing, requests, )
 
 
-__all__ = ('Application', '__where__', )
+__all__ = ('__where__', 'Application', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -37,18 +37,19 @@ class Application:
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
         # exception resources
-        self.not_found_handler = exceptions.NotFoundResponse
-        self.server_error_handler = exceptions.ServerErrorResponse
+        self.not_found_resource = exceptions.NotFoundResource
+        self.server_error_resource = exceptions.ServerErrorResource
         # allow subclassing of Response class
-        self.RequestClass = requests.Request
+        self.Request = requests.Request
 
     def __call__(self, environ, start_response):
         try:
-            request = self.RequestClass(environ)
+            request = self.Request(environ)
             route = request.route = self.routes.match(request.path)
             if isinstance(route, routing.Detour):
-                raise self.not_found_handler(request)
-            resource = route.resource(request, route)
+                resource = self.not_found_resource(request)
+            else:
+                resource = route.resource(request, route)
             with resource as (handler, kwargs):
                 response = handler(**kwargs)
         except exceptions.Response as response:
@@ -57,7 +58,8 @@ class Application:
             exception = {}
             exception['type'], exception['value'], _ = sys.exc_info()
             exception['traceback'] = traceback.format_exc()
-            response = self.server_error_handler(request, exception)
+            with self.server_error_resource(request, exception) as (handler, kwargs):
+                response = handler(**kwargs)
         finally:
             self.log(request, response)
             return response(environ, start_response)
@@ -71,9 +73,9 @@ class Application:
         for Route in routes.values():
             configure = getattr(Route, 'configure', do_nothing)
             configure(self.configuration)
-        for handler in (self.not_found_handler, self.server_error_handler):
+        for resource in (self.not_found_resource, self.server_error_resource):
             try:
-                configure = getattr(handler, 'configure', do_nothing)
+                configure = getattr(resource, 'configure', do_nothing)
                 configure(self.configuration)
             except:
                 pass
