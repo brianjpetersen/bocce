@@ -3,7 +3,7 @@ import os
 # third party libraries
 import webob
 # first party libraries
-pass
+from . import surly
 
 
 __all__ = ('Request', '__where__')
@@ -12,4 +12,11 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 
 class Request(webob.Request):
 
-    pass
+    _url = None
+    
+    @property
+    def url(self):
+        url = getattr(self, '_url', None)
+        if url is None:
+            url = Surly(super(Request, self).url)
+        return url

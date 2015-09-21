@@ -4,12 +4,13 @@ import os
 pass
 # first party libraries
 from . import (application, exceptions, caching, routing, paths, resources, 
-               requests, responses, )
+               requests, responses, surly)
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
-__all__ = ('Application', 'Routes', 'Path', 'Resource', 'Request', 'Response',
-           'application', 'exceptions', 'routing', 'caching', 'paths', 'resources',
+__all__ = ('Application', 'Routes', 'Path', 'Resource', 'Request', 
+           'application', 'exceptions', 'routing', 'caching', 'paths', 
+           'Response', 'resources', 'surly',
            '__where__', '__version__', )
 
 

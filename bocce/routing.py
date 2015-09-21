@@ -65,6 +65,10 @@ class Route(object):
     @property
     def segments(self):
         return self._segments
+        
+    @property
+    def matches(self):
+        return self.segments
 
     @property
     def priority(self):
