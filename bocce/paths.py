@@ -134,7 +134,7 @@ class Path(collections.Sequence):
         # construct an immutable tuple to be used for comparing against other paths
         # (primarily to provide a way to nicely sort a list of paths)
         # for more details, see __eq__
-        self._comparison_tuple = ( )
+        self._comparison_tuple = ()
         for segment in self:
             if isinstance(segment, PointySegment):
                 self._comparison_tuple += ((4, segment.alias), )
@@ -175,7 +175,13 @@ class Path(collections.Sequence):
     def path(self):
         return '{}{}{}'.format('/', '/'.join(map(str, self._segments)),
                                '/' if self.ends_with_slash else '')
-
+    
+    @property
+    def is_root(self):
+        return isinstance(self._segments[0], VerbatimSegment) and \
+               self._segments[0] == VerbatimSegment('') and \
+               len(self) == 1 #len(other._segments) == 1
+    
     def __str__(self):
         return self.path
 
@@ -211,8 +217,9 @@ class Path(collections.Sequence):
             raise TypeError()
         ends_with_slash = other.ends_with_slash
         # handle special case where we mount against '/' or ''
-        other_is_root = other._segments[0] == VerbatimSegment('') and len(other._segments) == 1 
-        self_is_root = self._segments[0] == VerbatimSegment('') and len(self._segments) == 1
+        #other_is_root = 
+        other_is_root = other.is_root
+        self_is_root = self.is_root
         if self_is_root and other_is_root:
             segments = (VerbatimSegment(''), )
         elif self_is_root:

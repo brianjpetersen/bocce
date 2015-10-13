@@ -18,5 +18,8 @@ class Request(webob.Request):
     def url(self):
         url = getattr(self, '_url', None)
         if url is None:
-            url = Surly(super(Request, self).url)
+            url = surly.Url(
+                scheme=self.scheme, host=self.domain, port=self.host_port, 
+                path=self.path, query_string=self.query_string,
+            )
         return url

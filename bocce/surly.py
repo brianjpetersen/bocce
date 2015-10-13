@@ -234,6 +234,8 @@ class Url(object):
         True
         >>> url.top_level_domain
         'com'
+        >>> url.replace(path='a/path', port=None).url
+        'http://www.podimetrics.com/a/path'
 
     """
     def __init__(self, scheme='http', host='localhost', port=80, path='/', 
@@ -264,31 +266,37 @@ class Url(object):
     def url(self):
         url = ''
         if self.scheme != '':
-            url += '{.scheme}://'.format(self)
+            url += '{}://'.format(self.scheme)
         if self.username not in ('', None):
             if self.password not in ('', None):
-                url += '{0.username}:{0.password}@'.format(self)
+                url += '{}:{}@'.format(self.username, self.password)
             else:
-                url += '{.username}@'.format(self)
+                url += '{}@'.format(self.username)
         url += self.host
-        port_explicit_in_scheme = (self.scheme == 'http' and self.port == 80) or \
-                                  (self.scheme == 'https' and self.port == 443)
+        port_explicit_in_scheme = (self.scheme == 'http' and (self.port == 80 or self.port is None)) or \
+                                  (self.scheme == 'https' and (self.port == 443 or self.port is None))
         if port_explicit_in_scheme:
             url += self.path
         elif self.port is not None:
-            url += ':{0.port}{0.path}'.format(self)
+            url += ':{}{}'.format(self.port, self.path)
         if self.query_string != '':
-            url += '?{.query_string}'.format(self)
+            url += '?{}'.format(self.query_string)
         if self.fragment != '':
-            url += '#{.fragment}'.format(self)
+            url += '#{}'.format(self.fragment)
         return url
 
     def __str__(self):
         return self.url
 
     def __repr__(self):
-        return '{.__class__.__name__}({0.scheme}, {0.host}, {0.port}, '\
-               '{0.path}, {0.query_string})'.format(self)
+        return '{}({}, {}, {}, {}, {})'.format(
+            self.__class__.__name__,
+            repr(self.scheme),
+            repr(self.host),
+            repr(self.port),
+            repr(self.path),
+            repr(self.query_string),
+        )
 
     def replace(self, **kwargs):
         url_kwargs = {

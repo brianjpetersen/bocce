@@ -224,8 +224,9 @@ class Routes(collections.MutableMapping):
             base_path = paths.Path.from_path(key)
             paths_to_set = []
             resources_to_set = []
-            #for relative_path_string in routes_to_set:
+            # for relative_path_string in routes_to_set:
             for relative_path in routes_to_set._paths:
+                #print(base_path, relative_path, base_path + relative_path)
                 path = base_path + relative_path
                 resource = routes_to_set[relative_path]
                 paths_to_set.append(path)

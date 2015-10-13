@@ -296,4 +296,19 @@ True
 ('/c', 'routes_2: c')
 ('/c/', 'routes_2: /c/')
     
+    
+>>> routes = bocce.Routes()
+>>> routes_1 = bocce.Routes()
+>>> routes_1['/'] = 'routes_1: /'
+>>> routes_1['/{a}'] = 'routes_1: /{a}'
+>>> routes_1['/{a}/b'] = 'routes_1: /{a}/b'
+>>> routes_1['/<c>'] = 'routes_1: /<c>'
+>>> routes['/'] = routes_1
+>>> for path in routes:
+...     print(path, routes[path])
+('/', 'routes_1: /')
+('/{a}', 'routes_1: /{a}')
+('/{a}/b', 'routes_1: /{a}/b')
+('/<c>', 'routes_1: /<c>')
+
 ```
