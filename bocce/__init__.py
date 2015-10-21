@@ -8,7 +8,7 @@ from . import (application, exceptions, caching, routing, paths, resources,
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
-__all__ = ('Application', 'Routes', 'Path', 'Resource', 'Request', 
+__all__ = ('Application', 'Routes', 'Path', 'Resource', 'StaticResource', 'Request', 
            'application', 'exceptions', 'routing', 'caching', 'paths', 
            'Response', 'resources', 'surly',
            '__where__', '__version__', )
@@ -22,5 +22,6 @@ Application = application.Application
 Routes = routing.Routes
 Path = paths.Path
 Resource = resources.Resource
+StaticResource = resources.StaticResource
 Request = requests.Request
 Response = responses.Response

@@ -1,6 +1,5 @@
 # standard libraries
 import os
-import heapq
 import collections
 # third party libraries
 pass

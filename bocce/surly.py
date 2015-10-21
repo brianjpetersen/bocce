@@ -277,11 +277,11 @@ class Url(object):
                                   (self.scheme == 'https' and (self.port == 443 or self.port is None))
         if port_explicit_in_scheme:
             url += self.path
-        elif self.port is not None:
+        elif self.port != '' and self.port is not None:
             url += ':{}{}'.format(self.port, self.path)
-        if self.query_string != '':
+        if self.query_string != '' and self.query_string is not None:
             url += '?{}'.format(self.query_string)
-        if self.fragment != '':
+        if self.fragment != '' and self.fragment is not None:
             url += '#{}'.format(self.fragment)
         return url
 

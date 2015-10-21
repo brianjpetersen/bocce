@@ -295,8 +295,7 @@ True
 ('/b', 'routes_1: /b')
 ('/c', 'routes_2: c')
 ('/c/', 'routes_2: /c/')
-    
-    
+  
 >>> routes = bocce.Routes()
 >>> routes_1 = bocce.Routes()
 >>> routes_1['/'] = 'routes_1: /'
