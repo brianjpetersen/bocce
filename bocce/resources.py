@@ -5,7 +5,7 @@ import zlib
 # third party libraries
 pass
 # first party libraries
-from . import (requests, responses, exceptions, )
+from . import (requests, responses)#, exceptions, )
 
 
 __all__ = ('Resource', '__where__', )
@@ -46,7 +46,7 @@ mimetypes.add_type('text/javascript', '.js') # stdlib default is application/x-j
 mimetypes.add_type('image/x-icon', '.ico') # not among defaults
 
 
-def StaticResource(path, cache=True):
+def StaticResource(path):#, cache=True):
     
     class StaticResource(Resource):
         
@@ -56,8 +56,6 @@ def StaticResource(path, cache=True):
         @classmethod
         def configure(cls, configuration):
             super(StaticResource, cls).configure(configuration)
-            if cache:
-                pass
         
         def __init__(self, request, route):
             self.request = request
@@ -95,12 +93,14 @@ def StaticResource(path, cache=True):
             if path < self.path:
                 # 403 Forbidden
                 raise self.forbidden_response
-            # check if path is a file or directory
-            is_file = os.path.isfile(path)
-            # return file to client
-            self.response.content_type, _ = mimetypes.guess_type(path)
-            with open(path, 'rb') as f:
-                self.response.body = f.read()
+            # check if path is a file or directory and respond as appropriate
+            if os.path.isfile(path):
+                # return file to client
+                self.response.content_type, _ = mimetypes.guess_type(path)
+                with open(path, 'rb') as f:
+                    self.response.body = f.read()
+            else:
+                self.response.body = '\n'.join(os.listdir(path))
             self.compress()
             return self.response
     
