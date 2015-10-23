@@ -18,20 +18,16 @@ mimetypes.add_type('image/x-icon', '.ico') # not among defaults
 
 
 def Resource(path):#, cache=True):
-
-    class Resource(Resource):
-
-        path = os.path.abspath(path)
-        is_file = os.path.isfile(path)
-
+    
+    class Resource(resources.Resource):
+        
         @classmethod
         def configure(cls, configuration):
-            super(StaticResource, cls).configure(configuration)
+            super(Resource, cls).configure(configuration)
 
         def __init__(self, request, route):
-            self.request = request
-            self.route = route
-            self.response = bocce.Response()
+            super(Resource, self).__init__(request, route)
+            self.response = responses.Response()
 
         @property
         def method_not_allowed_response(self):
@@ -50,6 +46,7 @@ def Resource(path):#, cache=True):
             return self, {'path': '/'.join(self.route.matches.get('path', ('', )))}
 
         def __call__(self, path):
+            print(path)
             if self.request.method.upper() != 'GET':
                 # 405 Method Not Allowed
                 raise self.method_not_allowed_response
@@ -74,5 +71,8 @@ def Resource(path):#, cache=True):
                 self.response.body = '\n'.join(os.listdir(path))
             self.compress()
             return self.response
-
+    
+    Resource.path = os.path.abspath(path)
+    Resource.is_file = os.path.isfile(path)
+    
     return Resource
