@@ -3,7 +3,7 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (application, exceptions, caching, routing, paths, resources, 
+from . import (application, exceptions, caching, routing, paths, resources, static,
                requests, responses, surly)
 
 
@@ -22,6 +22,6 @@ Application = application.Application
 Routes = routing.Routes
 Path = paths.Path
 Resource = resources.Resource
-StaticResource = resources.StaticResource
+StaticResource = static.Resource
 Request = requests.Request
 Response = responses.Response
