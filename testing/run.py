@@ -11,10 +11,25 @@ doctest.testfile('routing.md', optionflags=doctest.ELLIPSIS)
 doctest.testfile('application.md', optionflags=doctest.ELLIPSIS)
 doctest.testmod(bocce.surly)
 
-
 import sys
 
 sys.exit()
+
+class EchoPathResource(bocce.Resource):
+    
+    def __call__(self):
+        response = bocce.Response()
+        response.body = str(self.route.segments)
+        return response
+
+
+routes = bocce.Routes(cache=False)
+routes['/<test>'] = '/<test>'
+routes['/a/<test>'] = '/a/<test>'
+match = routes.match('/')
+print(match.resource, match.segments)
+
+
 
 import when
 import matplotlib.image as img

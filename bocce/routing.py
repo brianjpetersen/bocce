@@ -24,14 +24,14 @@ class Route(object):
         self._number_verbatim_segments = 0
         for matched_segment, target_segment in segments:
             if isinstance(matched_segment, paths.CurlySegment):
+                self._number_curly_segments += 1
                 alias = matched_segment.alias
                 target = target_segment.value
                 self._segments[alias] = target
-                self._number_curly_segments += 1
             elif isinstance(matched_segment, paths.PointySegment):
+                self._number_pointy_segments += 1
                 alias = matched_segment.alias
                 target = target_segment.value
-                self._number_pointy_segments += 1
                 if alias in self._segments:
                     self._segments[alias].append(target)
                 else:
@@ -40,6 +40,14 @@ class Route(object):
                 self._number_verbatim_segments += 1
             else:
                 raise TypeError()
+        for alias in self._segments.keys():
+            if isinstance(self._segments[alias], list):
+                while self._segments[alias]:
+                    if self._segments[alias][-1] == '':
+                       self._segments[alias] = self._segments[alias][:-1] 
+                    else:
+                        break
+                
 
     @property
     def number_curly_segments(self):
@@ -113,6 +121,8 @@ detour = Detour()
 def copy_list(a):
     """ Copy a list.  Could do this inline, but Alex Martelli claims 
         it is 'a weird syntax and it does not make sense to use it ever.'
+        
+        Except it's faster.
 
     """
     return a[:]
@@ -147,13 +157,14 @@ class PotentialRoute(object):
                 path, resource, priority = children
                 route = Route(path, resource, priority, segments)
                 return route, []
-            # there is no match, and there are no additional potential matches 
-            # that can be made against this path_to_match
-            #elif isinstance(parent, paths.PointySegment) and len(path) == depth and path.ends_with_slash in children:
-            #    segments.append((parent, paths.VerbatimSegment('')))
-            #    path, resource, priority = children[path.ends_with_slash]
-            #    route = Route(path, resource, priority, segments)
-            #    return route, []
+            elif isinstance(parent, paths.PointySegment):
+                last_matched_segment, _ = segments[-1]
+                if last_matched_segment != parent and path.ends_with_slash == False:
+                    return detour, []
+                segments.append((parent, paths.VerbatimSegment('')))
+                path, resource, priority = children[None]
+                route = Route(path, resource, priority, segments)
+                return route, []
             else:
                 return detour, []
         # check if the parent matches the path, and if so then add

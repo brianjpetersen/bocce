@@ -133,7 +133,6 @@ RouteDuplicateError
 '/a/{b}'
 '/a/{b}/'
 '/a/<b>'
-'/a/<b>/'
 '/c'
 '/c/'
 
@@ -309,5 +308,54 @@ True
 ('/{a}', 'routes_1: /{a}')
 ('/{a}/b', 'routes_1: /{a}/b')
 ('/<c>', 'routes_1: /<c>')
+
+```
+
+# Behavior of <PointySegments>
+
+```python
+
+>>> routes = bocce.Routes(cache=False)
+>>> routes['/a/<test>'] = '/a/<test>'
+
+>>> match = routes.match('/a')
+>>> match.resource is None
+True
+>>> match.segments
+{}
+
+
+>>> routes['/<test>'] = '/<test>'
+
+
+>>> match = routes.match('/')
+>>> match.resource
+'/<test>'
+>>> match.segments
+{'test': []}
+
+>>> match = routes.match('/a')
+>>> match.resource
+'/<test>'
+>>> match.segments
+{'test': ['a']}
+
+>>> match = routes.match('/a/')
+>>> match.resource
+'/a/<test>'
+>>> match.segments
+{'test': []}
+
+>>> match = routes.match('/a/b/c')
+>>> match.resource
+'/a/<test>'
+>>> match.segments
+{'test': ['b', 'c']}
+
+>>> match = routes.match('/a/b/c/')
+>>> match.resource
+'/a/<test>'
+>>> match.segments
+{'test': ['b', 'c']}
 
 ```

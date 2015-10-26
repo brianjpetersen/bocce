@@ -160,11 +160,17 @@ class Path(collections.Sequence):
 
     @classmethod
     def from_path(cls, path):
-        # define whether the path starts and ends with slash
-        ends_with_slash = path.endswith('/') and len(path) > 1
         # define _segments, which this Sequence is aliased to
         naked_segments = path.lstrip('/').rstrip('/').split('/')
         segments = tuple(Segment(segment) for segment in naked_segments)
+        # three options for ends_with_slash; None for case of indeterminate
+        # (ie, path ends with <PointySegment>)
+        if isinstance(segments[-1], PointySegment):
+            ends_with_slash = None
+        elif path.endswith('/') and len(path) > 1:
+            ends_with_slash = True
+        else:
+            ends_with_slash = False
         return cls(segments, ends_with_slash)
 
     @property
