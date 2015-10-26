@@ -2,6 +2,7 @@
 import os
 import mimetypes
 import zlib
+import posixpath
 # third party libraries
 pass
 # first party libraries
@@ -17,7 +18,52 @@ mimetypes.add_type('text/javascript', '.js') # stdlib default is application/x-j
 mimetypes.add_type('image/x-icon', '.ico') # not among defaults
 
 
-def Resource(path):#, cache=True):
+_directory_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+  <head>
+    <title>Directory Listing for {full_url_path}</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link href='http://fonts.googleapis.com/css?family=Lato&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+        body{{background-color: #f1f1f1; font-family: Lato;}}
+    </style>
+  </head>
+  <body>
+    <h1>Directory Listing for {full_url_path}</h1>
+    <hr>
+    <ul class="fa-ul">
+      {directory_list}
+    </ul>
+    <hr>
+  </body>
+</html>'''
+
+
+_directory_list_item_template = '''<li>
+    {icon}<a href="{path}">{path}</a>
+</li>'''
+
+
+def _render_directory_list_item(path, is_file):
+    if is_file:
+        icon = '<i class="fa-li fa fa-file"></i>'
+    else:
+        icon = '<i class="fa-li fa fa-folder"></i>'
+    return _directory_list_item_template.format(path=path, icon=icon)
+
+
+def _render_directory_template(url_path, os_path, full_url_path):
+    items = [(os.path.isfile(os.path.join(os_path, path)), path) for path in os.listdir(os_path)]
+    items.sort()
+    directory_list = '\n'.join(_render_directory_list_item(path, is_file) for is_file, path in items)
+    return _directory_template.format(
+        url_path=url_path,
+        directory_list=directory_list,
+        full_url_path=full_url_path,
+    )
+
+
+def Resource(path, expose_directories=False):
     
     class Resource(resources.Resource):
         
@@ -43,33 +89,39 @@ def Resource(path):#, cache=True):
                 self.response.content_encoding = 'gzip'
 
         def __enter__(self):
-            return self, {'path': '/'.join(self.route.matches.get('path', ('', )))}
+            return self, {'url_path': '/'.join(self.route.matches.get('path', ('', )))}
 
-        def __call__(self, path):
-            print(path)
+        def __call__(self, url_path):
             if self.request.method.upper() != 'GET':
                 # 405 Method Not Allowed
                 raise self.method_not_allowed_response
-            if self.is_file and path not in ('', None):
+            if self.is_file and url_path not in ('', None):
                 # 404 Not Found
                 raise self.not_found_response
             if self.is_file:
-                path = self.path
+                os_path = self.path
             else:
                 # get absolute path for resource requested
-                path = os.path.abspath(os.path.join(self.path, path))
+                os_path = os.path.abspath(os.path.join(self.path, url_path))
             if path < self.path:
                 # 403 Forbidden
                 raise self.forbidden_response
             # check if path is a file or directory and respond as appropriate
-            if os.path.isfile(path):
+            if os.path.isfile(os_path):
                 # return file to client
-                self.response.content_type, _ = mimetypes.guess_type(path)
-                with open(path, 'rb') as f:
+                self.response.content_type, _ = mimetypes.guess_type(os_path)
+                # note, for gzip compression, we have to read the whole file into memory
+                # ideally, we'd have a gzipped version on disk so that we could stream 
+                # the file object using app_iter
+                # this is a good task for the configure class method and a great future
+                # enhancement
+                with open(os_path, 'rb') as f:
                     self.response.body = f.read()
             else:
-                self.response.body = '\n'.join(os.listdir(path))
-            self.compress()
+                self.response.body = _render_directory_template(
+                    url_path, os_path, self.request.url.path
+                )
+            #self.compress()
             return self.response
     
     Resource.path = os.path.abspath(path)

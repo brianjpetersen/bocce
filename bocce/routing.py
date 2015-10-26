@@ -149,6 +149,11 @@ class PotentialRoute(object):
                 return route, []
             # there is no match, and there are no additional potential matches 
             # that can be made against this path_to_match
+            #elif isinstance(parent, paths.PointySegment) and len(path) == depth and path.ends_with_slash in children:
+            #    segments.append((parent, paths.VerbatimSegment('')))
+            #    path, resource, priority = children[path.ends_with_slash]
+            #    route = Route(path, resource, priority, segments)
+            #    return route, []
             else:
                 return detour, []
         # check if the parent matches the path, and if so then add
@@ -225,7 +230,6 @@ class Routes(collections.MutableMapping):
             resources_to_set = []
             # for relative_path_string in routes_to_set:
             for relative_path in routes_to_set._paths:
-                #print(base_path, relative_path, base_path + relative_path)
                 path = base_path + relative_path
                 resource = routes_to_set[relative_path]
                 paths_to_set.append(path)
