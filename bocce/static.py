@@ -1,8 +1,9 @@
 # standard libraries
 import os
 import mimetypes
-import zlib
 import posixpath
+import gzip
+import shutil
 # third party libraries
 pass
 # first party libraries
@@ -16,6 +17,14 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 mimetypes._winreg = None # do not load mimetypes from windows registry
 mimetypes.add_type('text/javascript', '.js') # stdlib default is application/x-javascript
 mimetypes.add_type('image/x-icon', '.ico') # not among defaults
+
+
+mimetypes_to_compress = set(
+    ('text/html', 'application/x-javascript', 'text/css', 'application/javascript', 'text/javascript', 
+     'text/plain', 'text/xml', 'application/json', 'application/x-font-opentype', 
+     'application/x-font-truetype', 'application/x-font-ttf', 'application/xml', 
+     'font/eot', 'font/opentype', 'font/otf', 'image/svg+xml', 'image/vnd.microsoft.icon')
+)
 
 
 _directory_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
@@ -66,9 +75,28 @@ def _render_directory_template(url_path, os_path, full_url_path):
     )
 
 
-def Resource(path, expose_directories=False, cache_zipped_files=True, prezip_files=False):
+class FileIterator(object):
+    
+    def __init__(self, file, block_size):
+        self.file = file
+        self.block_size = block_size
+        
+    def __iter__(self):
+        try:
+            while True:
+                block = self.file.read(self.block_size)
+                if not block:
+                    break
+                yield block
+        finally:
+            self.file.close()
+
+
+def Resource(path, expose_directories=False, prezip_files=False, cache_content):
     
     class Resource(resources.Resource):
+        
+        base_zip_cache_directory = '.bocce-zip-cache/'
         
         @classmethod
         def configure(cls, configuration):
@@ -81,18 +109,15 @@ def Resource(path, expose_directories=False, cache_zipped_files=True, prezip_fil
         @property
         def method_not_allowed_response(self):
             response = exceptions.Response()
-
-        def compress(self, minimum_size=999, level=2):
-            #self.response.encode_content()
-            return
-            should_be_compressed = (
-                'gzip' in self.request.accept_encoding and \
-                len(self.response.body) > minimum_size
-            )
-            if should_be_compressed:
-                self.response.body = zlib.compress(self.response.body, level)
-                self.response.content_encoding = 'gzip'
-
+            
+        @property
+        def not_found_response(self):
+            pass
+            
+        @property
+        def forbidden_response(self):
+            pass
+        
         def __enter__(self):
             return self, {'url_path': '/'.join(self.route.matches.get('path', ('', )))}
 
@@ -111,7 +136,7 @@ def Resource(path, expose_directories=False, cache_zipped_files=True, prezip_fil
             if path < self.path:
                 # 403 Forbidden
                 raise self.forbidden_response
-            # check if path is a file or directory and respond as appropriate
+            # check if path is a file or directory and respond appropriately
             if os.path.isdir(os_path):
                 if self.request.url.path.endswith('/') == False and url_path != '':
                     raise self.not_found_response
@@ -121,22 +146,61 @@ def Resource(path, expose_directories=False, cache_zipped_files=True, prezip_fil
                     url_path, os_path, self.request.url.path
                 )
             else:
-                # return file to client
-                self.response.content_type, _ = mimetypes.guess_type(os_path)
-                # note, for gzip compression, we have to read the whole file into memory
-                # ideally, we'd have a gzipped version on disk so that we could stream 
-                # the file object using app_iter
-                # this is a good task for the configure class method and a great future
-                # enhancement
+                # get metadata
+                content_type, _ = mimetypes.guess_type(os_path)
+                self.response.content_type = content_type
+                stats = os.stat(os_path)
+                file_size = stats.st_size
+                when_last_modified = stats.st_mtime
+                
                 try:
-                    with open(os_path, 'rb') as f:
-                        self.response.body = f.read()
-                except IOError:
-                    raise self.not_found_response
+                    block_size = stats.st_blksize
+                except:
+                    block_size = 4096
+                # determine if the file should be compressed
+                should_be_zipped = (
+                    'gzip' in self.request.accept_encoding and file_size > 999 and 
+                    content_type in mimetypes_to_compress
+                )
+                if should_be_zipped:
+                    # check to see if zip file already exists
+                    directory, filename = os.path.split(os_path)
+                    # does the directory exist?  create if not.
+                    cache_directory = os.path.join(directory, self.base_zip_cache_directory)
+                    if os.path.isdir(cache_directory) == False:
+                        os.mkdir(cache_directory)
+                    # does the zip file exist?  create if not.
+                    last_modified_timestamp = str(when_last_modified).replace('.', '').strip()
+                    base_filename, extension = os.path.splitext(filename)
+                    compressed_filename = '.{}-{}{}.gz'.format(
+                        base_filename, last_modified_timestamp, extension
+                    )
+                    compressed_path = os.path.join(cache_directory, compressed_filename)
+                    try:
+                        file_ = open(compressed_path, 'rb')
+                        self.response.content_encoding = 'gzip'
+                    except IOError:
+                        try:
+                            with open(os_path, 'rb') as f_in, gzip.open(compressed_path, 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                            file_ = gzip.open(compressed_path, 'rb')
+                            self.response.content_encoding = 'gzip'
+                        except:
+                            try:
+                                file_ = open(os_path, 'rb')
+                            except IOError:
+                                raise self.not_found_response
+                else:
+                    try:
+                        file_ = open(os_path, 'rb')
+                    except IOError:
+                        raise self.not_found_response
+                self.response.app_iter = FileIterator(file_, block_size)
             return self.response
     
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
     Resource.expose_directories = expose_directories
+    Resource.prezip_files = prezip_files
     
     return Resource
