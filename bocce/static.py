@@ -48,12 +48,15 @@ def _render_directory_list_item(path, is_file):
     if is_file:
         icon = '<i class="fa-li fa fa-file"></i>'
     else:
+        if path.endswith('/') == False:
+            path = path + '/'
         icon = '<i class="fa-li fa fa-folder"></i>'
     return _directory_list_item_template.format(path=path, icon=icon)
 
 
 def _render_directory_template(url_path, os_path, full_url_path):
-    items = [(os.path.isfile(os.path.join(os_path, path)), path) for path in os.listdir(os_path)]
+    items = [(os.path.isfile(os.path.join(os_path, path)), path) for path in os.listdir(os_path) if 
+             path.startswith('.') == False]
     items.sort()
     directory_list = '\n'.join(_render_directory_list_item(path, is_file) for is_file, path in items)
     return _directory_template.format(
@@ -63,7 +66,7 @@ def _render_directory_template(url_path, os_path, full_url_path):
     )
 
 
-def Resource(path, expose_directories=False):
+def Resource(path, expose_directories=False, cache_zipped_files=True, prezip_files=False):
     
     class Resource(resources.Resource):
         
@@ -80,6 +83,8 @@ def Resource(path, expose_directories=False):
             response = exceptions.Response()
 
         def compress(self, minimum_size=999, level=2):
+            #self.response.encode_content()
+            return
             should_be_compressed = (
                 'gzip' in self.request.accept_encoding and \
                 len(self.response.body) > minimum_size
@@ -107,7 +112,15 @@ def Resource(path, expose_directories=False):
                 # 403 Forbidden
                 raise self.forbidden_response
             # check if path is a file or directory and respond as appropriate
-            if os.path.isfile(os_path):
+            if os.path.isdir(os_path):
+                if self.request.url.path.endswith('/') == False and url_path != '':
+                    raise self.not_found_response
+                if self.expose_directories == False:
+                    raise self.not_found_response
+                self.response.body = _render_directory_template(
+                    url_path, os_path, self.request.url.path
+                )
+            else:
                 # return file to client
                 self.response.content_type, _ = mimetypes.guess_type(os_path)
                 # note, for gzip compression, we have to read the whole file into memory
@@ -115,16 +128,15 @@ def Resource(path, expose_directories=False):
                 # the file object using app_iter
                 # this is a good task for the configure class method and a great future
                 # enhancement
-                with open(os_path, 'rb') as f:
-                    self.response.body = f.read()
-            else:
-                self.response.body = _render_directory_template(
-                    url_path, os_path, self.request.url.path
-                )
-            #self.compress()
+                try:
+                    with open(os_path, 'rb') as f:
+                        self.response.body = f.read()
+                except IOError:
+                    raise self.not_found_response
             return self.response
     
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
+    Resource.expose_directories = expose_directories
     
     return Resource
