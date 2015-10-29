@@ -4,6 +4,8 @@ import mimetypes
 import posixpath
 import gzip
 import shutil
+import hashlib
+import cPickle as pickle
 # third party libraries
 pass
 # first party libraries
@@ -92,16 +94,147 @@ class FileIterator(object):
             self.file.close()
 
 
-def Resource(path, expose_directories=False, prezip_files=False, cache_content):
+def hash_file(file_, block_size=4096):
+    hash_ = hashlib.md5()
+    for chunk in FileIterator(file_, block_size):
+        hash_.update(chunk)
+    return hash_.hexdigest()
+
+
+def mkdir(name):
+    try:
+        os.mkdir(name)
+    except:
+        pass
+        
+def rm(name):
+    try:
+        os.remove(name)
+    except:
+        pass
+
+
+def Resource(path, expose_directories=False):
     
     class Resource(resources.Resource):
         
-        base_zip_cache_directory = '.bocce-zip-cache/'
+        bocce_directory = '.bocce/'
+        
+        @classmethod
+        def cleanup_cache(cls):
+            raise NotImplementedError()
+        
+        @classmethod
+        def connect_sqlite(cls):
+            filename = os.path.join(cls.bocce_directory, '.metadata.sqlite')
+            connection = sqlite3.connect(filename)
+            return connection
+        
+        @classmethod
+        def configure_sqlite(cls):
+            connection = cls.connect_sqlite()
+            # create table if it doesn't exist
+            with connection:
+                cursor = connection.cursor()
+                columns = 'url_path TEXT PRIMARY KEY, file_last_modified REAL, file_size REAL, file_hash TEXT'
+                cursor.execute('CREATE TABLE IF NOT EXISTS bocce({columns})'.format(columns=columns))
+            return connection
+        
+        @classmethod
+        def insert_metadata(connection, url_path, file_last_modified, file_size, file_hash):
+            query = 'INSERT INTO bocce VALUES("{url_path}", {file_last_modified}, \
+                     {file_size}, {file_hash})'.format(
+                         url_path=url_path, file_last_modified=file_last_modified, 
+                         file_size=file_size, file_hash=file_hash
+                     )
+            with connection:
+                cursor = connection.cursor()
+                cursor.execute(query)
+        
+        @staticmethod
+        def get_file_stats(path):
+            file_stats = {}
+            file_stats['content_type'], _ = mimetypes.guess_type(path)
+            _stats = os.stat(path)
+            file_stats['size'] = _stats.st_size
+            file_stats['last_modified'] = _stats.st_mtime
+            try:
+                file_stats['block_size'] = _stats.st_blksize
+            except:
+                file_stats['block_size'] = 4096
+            return file_stats
+        
+        @staticmethod
+        def get_cache_metadata(connection, url_path):
+            query = 'SELECT file_last_modified, file_size, file_hash FROM bocce \
+                     WHERE url_path = "{url_path}"'.format(url_path)
+            metadata = connection.execute(query).fetchone()
+            if metadata == ():
+                return None
+            else:
+                return dict(zip(('last_modified', 'size', 'hash'), metadata))
+        
+        @classmethod
+        def update_metadata(cls, connection, os_path, url_path, file_stats):
+            file_hash = hash_file(open(os_path, 'rb'), file_stats['block_size'])
+            cls.insert_metadata(
+                connection, url_path, file_stats['last_modified'], file_stats['size'], file_hash
+            )
+            # remove any existing gzip file from the previous version of the file
+            old_zip_path = os.path.join(
+                cls.bocce_directory, '.cache/', '{}.gz'.format(file_hash)
+            )
+            rm(old_zip_path)
+            return file_hash
         
         @classmethod
         def configure(cls, configuration):
             super(Resource, cls).configure(configuration)
+            
+            import when
+            when.tic()
+            
+            # create hidden directories
+            directory_name = os.path.join(cls.path, cls.bocce_directory)
+            mkdir(directory_name)
+            directory_name = os.path.join(directory_name, '.cache/')
+            mkdir(directory_name)
+            # setup sqlite3
+            sqlite_connection = cls.configure_sqlite()
+            # iterate over files in cls.path
+            for base_directory, _, filenames in os.walk(cls.path, topdown=True):
+                for filename in filenames:
+                    os_path = os.path.join(base_directory, filename)
+                    url_path = os.path.relpath(os_path, cls.path)
+                    # get statistics from file system
+                    file_stats = cls.get_file_stats(os_path)
+                    # get statistics from cache
+                    metadata = get_cache_metadata(sqlite_connection, url_path)
+                    # if no metadata is undefined or stale, update it
+                    ## metadata undefined
+                    if metadata is None:
+                        file_hash = cls.update_metadata(connection, os_path, url_path, file_stats)
+                    ## metadata stale
+                    elif ((metadata['last_modified'], metadata['size']) != 
+                          (file_stats['last_modified'], file_stats['size'])):
+                        file_hash = cls.update_metadata(connection, os_path, url_path, file_stats)
+                    ## metadata defined and fresh
+                    else:
+                        file_hash = metadata['hash']
+                    # check if file should be zipped
+                    zip_path = os.path.join(cls.bocce_directory, '.cache/', '{}.gz'.format(file_hash))
+                    # determine if the file should have a compressed file in the cache
+                    should_be_zipped = (
+                        file_stats['size'] >= 128 and file_stats['content_type'] in mimetypes_to_compress
+                    )
+                    # create cached zip file if appropriate
+                    if os.path.isfile(zip_path) == False and should_be_zipped:
+                        with open(os_path, 'rb') as source, gzip.open(zip_path, 'wb') as destination:
+                            shutil.copyfileobj(source, destination)
 
+            connection.close()
+            print(when.toc())
+            
         def __init__(self, request, route):
             super(Resource, self).__init__(request, route)
             self.response = responses.Response()
@@ -146,6 +279,51 @@ def Resource(path, expose_directories=False, prezip_files=False, cache_content):
                     url_path, os_path, self.request.url.path
                 )
             else:
+                connection = self.connect_sqlite()
+                # get statistics from file system
+                file_stats = self.get_file_stats(os_path)
+                # get statistics from cache
+                metadata = self.get_cache_metadata(connection, url_path)
+                # if no metadata is undefined or stale, update it
+                ## metadata undefined
+                if metadata is None:
+                    file_hash = self.update_metadata(connection, os_path, url_path, file_stats)
+                ## metadata stale
+                elif ((metadata['last_modified'], metadata['size']) != 
+                      (file_stats['last_modified'], file_stats['size'])):
+                    file_hash = self.update_metadata(connection, os_path, url_path, file_stats)
+                ## metadata defined and fresh
+                else:
+                    file_hash = metadata['hash']
+                # check if request has etag validation that matches file_hash
+                # return 304 Not Modified if so
+                if file_hash in self.request.if_none_match:
+                    return self.not_modified_response
+                # check if file should be zipped
+                zip_path = os.path.join(cls.bocce_directory, '.cache/', '{}.gz'.format(file_hash))
+                # determine if the file should have a compressed file in the cache
+                should_be_zipped = (
+                    file_stats['size'] >= 128 and file_stats['content_type'] in mimetypes_to_compress
+                )
+                # create cached zip file if appropriate
+                if os.path.isfile(zip_path) == False and should_be_zipped:
+                    with open(os_path, 'rb') as source, gzip.open(zip_path, 'wb') as destination:
+                        shutil.copyfileobj(source, destination)
+                # respond to request
+                ## determine if the file should be compressed
+                should_be_zipped = (
+                    'gzip' in self.request.accept_encoding and file_stats['size'] >= 128 and 
+                    content_type in mimetypes_to_compress
+                )
+                if should_be_zipped:
+                
+
+
+
+
+
+
+
                 # get metadata
                 content_type, _ = mimetypes.guess_type(os_path)
                 self.response.content_type = content_type
@@ -157,6 +335,10 @@ def Resource(path, expose_directories=False, prezip_files=False, cache_content):
                     block_size = stats.st_blksize
                 except:
                     block_size = 4096
+                    
+                    
+                
+                
                 # determine if the file should be compressed
                 should_be_zipped = (
                     'gzip' in self.request.accept_encoding and file_size > 999 and 
@@ -195,6 +377,11 @@ def Resource(path, expose_directories=False, prezip_files=False, cache_content):
                         file_ = open(os_path, 'rb')
                     except IOError:
                         raise self.not_found_response
+
+
+
+
+
                 self.response.app_iter = FileIterator(file_, block_size)
             return self.response
     

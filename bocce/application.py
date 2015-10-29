@@ -104,5 +104,4 @@ class Application:
             self.logger.error(exception_details)
 
     def serve(self, *args, **kwargs):
-        self.configure()
         waitress.serve(self, *args, **kwargs)

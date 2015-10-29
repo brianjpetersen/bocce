@@ -18,11 +18,13 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 application = bocce.Application()
 application.server_error_resource = bocce.exceptions.DebugServerErrorResource
 static_path = os.path.join(__where__, 'assets')
+#static_path = '/Users/brianjpetersen/Desktop/podimetrics/frontend_common_assets'
 application.routes['/assets/<path>'] = bocce.StaticResource(static_path, expose_directories=True)
-#application.configure()
+application.configure()
 
 application.serve()
 
+"""
 when.tic()
 request = bocce.Request.blank('http://localhost/assets/server_problem.png')
 #request = bocce.Request.blank('http://localhost/assets')
@@ -39,3 +41,4 @@ response = request.get_response(application)
 #print(response)
 print(when.toc())
 print('')
+"""
