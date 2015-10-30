@@ -7,7 +7,6 @@ import gzip
 import collections
 import sqlite3
 import datetime
-import copy
 # third party libraries
 pass
 # first party libraries
@@ -390,7 +389,9 @@ class Base(resources.Resource):
 
 def Resource(path, expose_directories=False, cleanup_cache=False, max_age=5*60, cls=Base):
     
-    Resource = copy.deepcopy(cls)    
+    class Resource(cls):
+        pass
+    
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
     Resource.expose_directories = expose_directories

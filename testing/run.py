@@ -2,6 +2,7 @@
 import os
 import doctest
 import when
+import sys
 # third party libraries
 pass
 # first party libraries
@@ -11,6 +12,16 @@ import bocce
 #doctest.testfile('routing.md', optionflags=doctest.ELLIPSIS)
 #doctest.testfile('application.md', optionflags=doctest.ELLIPSIS)
 #doctest.testmod(bocce.surly)
+
+
+routes = bocce.Routes(cache=False)
+routes['/'] = '/'
+routes['/assets/public/<path>'] = '/assets/public/<path>'
+
+print(routes.match('').resource)
+
+
+sys.exit()
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
