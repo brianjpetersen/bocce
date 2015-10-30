@@ -9,20 +9,14 @@ pass
 import bocce
 
 
-#doctest.testfile('routing.md', optionflags=doctest.ELLIPSIS)
-#doctest.testfile('application.md', optionflags=doctest.ELLIPSIS)
-#doctest.testmod(bocce.surly)
-
-
-routes = bocce.Routes(cache=False)
-routes['/'] = '/'
-routes['/assets/public/<path>'] = '/assets/public/<path>'
-
-print(routes.match('').resource)
+doctest.testfile('routing.md', optionflags=doctest.ELLIPSIS)
+doctest.testfile('application.md', optionflags=doctest.ELLIPSIS)
+doctest.testmod(bocce.surly)
 
 
 sys.exit()
 
+# need to add tests for static resources
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
 

@@ -262,6 +262,11 @@ class Base(resources.Resource):
     @classmethod
     def configure(cls, configuration):
         super(Base, cls).configure(configuration)
+        # pull relevant details out of configuration
+        static_configuration = configuration.get('static', {})
+        cls.expose_directories = False
+        cls.cleanup_cache = False
+        cls.max_age = 5*60
         # create hidden directories
         if cls.is_file:
             path, _ = os.path.split(cls.path)
@@ -292,10 +297,6 @@ class Base(resources.Resource):
                     os_path = os.path.join(base_directory, filename)
                     with File(os_path, cls.cache_directory):
                         pass
-        
-    def __init__(self, request, route):
-        super(Base, self).__init__(request, route)
-        self.response = responses.Response()
     
     def _exception_response(self, status, message):
         response = exceptions.Response()
@@ -337,6 +338,9 @@ class Base(resources.Resource):
         return self, {'url_path': '/'.join(self.route.matches.get('path', ('', )))}
 
     def __call__(self, url_path):
+        if self.configuration.get('secure', False):
+            self.require_https()
+            self.secure()
         if self.request.method.upper() != 'GET':
             # 405 Method Not Allowed
             raise self.method_not_allowed_response
@@ -387,15 +391,13 @@ class Base(resources.Resource):
         return self.response
 
 
-def Resource(path, expose_directories=False, cleanup_cache=False, max_age=5*60, cls=Base):
+def Resource(path, base=Base):
     
-    class Resource(cls):
+    class Resource(base):
+        
         pass
     
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
-    Resource.expose_directories = expose_directories
-    Resource.max_age = max_age
-    Resource.cleanup_cache = cleanup_cache
-    
+        
     return Resource

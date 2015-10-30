@@ -10,11 +10,17 @@ __all__ = ('Resource', '__where__', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
+class _ExceptionResponse(responses.Response, Exception):
+    # defining here to avoid circular dependency (can't import 
+    # exceptions here because it depends on this file).
+    pass
+
 class Resource(object):
 
     def __init__(self, request, route):
         self.request = request
         self.route = route
+        self.response = responses.Response()
 
     @classmethod
     def configure(cls, configuration):
@@ -28,9 +34,38 @@ class Resource(object):
             response = handler(**kwargs)
         return response(environ, start_response)
 
+    def require_https(self):
+        if self.request.url.scheme != 'https':
+            response = _ExceptionResponse()
+            response.status = '301 Moved Permanently'
+            response.location = str(
+                self.request.url.replace(scheme='https', port=443)
+            )
+            raise response
+        # require https for all future requests on this domain
+        self.response.headers['Strict-Transport-Security'] = 'max-age=31536000'
+    
+    def secure(self):
+        response = self.response
+        # enable cross-site-scripting filter (on by default in most cases)
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        # click-jacking protection
+        response.headers['X-Frame-Options'] = 'sameorigin'
+        response.headers['Frame-Options'] = 'sameorigin'
+        """
+        # content security policy; deny from all except this domain
+        content_security_policy = 'script-src {0}; child-src {0}; connect-src {0}; ' \
+            'font-src {0}; media-src {0}; object-src {0}; style-src {0}; ' \
+            'upgrade-insecure-requests'.format(
+                self.url.replace()
+        ) #'*.example.com:*'
+        """
+
     def __call__(self, **kwargs):
-        response = responses.Response()
-        return response
+        if self.configuration.get('secure', False):
+            self.require_https()
+            self.secure()
+        return self.response
 
     def __enter__(self):
         return self, {}
