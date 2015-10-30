@@ -17,9 +17,9 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 
 application = bocce.Application()
 application.server_error_resource = bocce.exceptions.DebugServerErrorResource
-static_path = os.path.join(__where__, 'assets')
-#static_path = '/Users/brianjpetersen/Desktop/podimetrics/frontend_common_assets'
-application.routes['/assets/<path>'] = bocce.StaticResource(static_path, expose_directories=True)
+#static_path = os.path.join(__where__, 'assets')
+static_path = '/Users/brianjpetersen/Desktop/podimetrics/frontend_common_assets'
+application.routes['/assets/<path>'] = bocce.StaticResource(static_path, expose_directories=True, cleanup_cache=False)
 application.configure()
 
 application.serve()

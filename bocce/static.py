@@ -6,6 +6,8 @@ import hashlib
 import gzip
 import collections
 import sqlite3
+import datetime
+import copy
 # third party libraries
 pass
 # first party libraries
@@ -29,14 +31,15 @@ mimetypes_to_compress = set(
 )
 
 
-_directory_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+_directory_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
   <head>
     <title>Directory Listing for {full_url_path}</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
     <link href='http://fonts.googleapis.com/css?family=Lato&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
     <style type="text/css">
-        body{{background-color: #f1f1f1; font-family: Lato;}}
+        body{{background-color: #f1f1f1; font-family: Lato; color: #252226;}}
+        hr{{color: #252226; background-color: #252226;}}
     </style>
   </head>
   <body>
@@ -53,6 +56,23 @@ _directory_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
 _directory_list_item_template = '''<li>
     {icon}<a href="{path}">{path}</a>
 </li>'''
+
+
+_error_template = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <title>{status}</title>
+    <link href='http://fonts.googleapis.com/css?family=Lato&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+        body{{background-color: #f1f1f1; font-family: Lato; color: #252226;}}
+        hr{{color: #252226; background-color: #252226;}}
+    </style>
+  </head>
+  <body>
+    <h1>{status}</h1>
+    <p>{message}</p>
+  </body>
+</html>'''
 
 
 def _render_directory_list_item(path, is_file):
@@ -118,9 +138,8 @@ class File(object):
     FileStats = collections.namedtuple('FileStats', ('last_modified', 'size', 'content_type', 'block_size'))
     CacheStats = collections.namedtuple('CacheStats', ('last_modified', 'size', 'hash')) 
     
-    def __init__(self, os_path, url_path, cache_directory):
+    def __init__(self, os_path, cache_directory):
         self.os_path = os_path
-        self.url_path = url_path
         self.cache_directory = cache_directory
         # setup sqlite connection for metadata
         cache_metadata_path = os.path.join(cache_directory, 'metadata.sqlite')
@@ -153,7 +172,7 @@ class File(object):
         
     @property
     def zip_file(self):
-        file_ = gzip.open(self.zip_path, 'rb')
+        file_ = open(self.zip_path, 'rb')
         return FileIterator(file_, self.os_stats.block_size)
     
     def update_zip_file(self):
@@ -173,16 +192,12 @@ class File(object):
         )
         
     def update_cache(self):
-        hash_ = self.retrieve_hash()
+        self.hash = self.retrieve_hash()
         cache_stats = self.CacheStats(
-            self.os_stats.last_modified, self.os_stats.size, hash_
+            self.os_stats.last_modified, self.os_stats.size, self.hash
         )
-        print(                     self.url_path,
-                     cache_stats.last_modified, 
-                     cache_stats.size,
-                     cache_stats.hash)
-        query = 'INSERT INTO bocce VALUES(?, ?, ?, ?)'
-        values = (self.url_path, cache_stats.last_modified, cache_stats.size, cache_stats.hash)
+        query = 'INSERT OR REPLACE INTO bocce VALUES(?, ?, ?, ?)'
+        values = (self.os_path, cache_stats.last_modified, cache_stats.size, cache_stats.hash)
         connection = self.connection
         with connection:
             cursor = connection.cursor()
@@ -202,14 +217,21 @@ class File(object):
         
     def retrieve_cache_stats(self):
         query = 'SELECT file_last_modified, file_size, file_hash FROM bocce \
-                 WHERE url_path = "{}"'.format(self.url_path)
+                 WHERE os_path = "{}"'.format(self.os_path)
         cache_stats = self.connection.execute(query).fetchone()
         if cache_stats is None:
             raise CacheUndefined()
         else:
-            file_last_modified, file_size, _hash = cache_stats
-            self._hash = _hash
-            return self.CacheStats(file_last_modified, file_size, _hash)
+            file_last_modified, file_size, self.hash = cache_stats
+            return self.CacheStats(file_last_modified, file_size, self.hash)
+    
+    @property
+    def content_type(self):
+        return self.os_stats.content_type
+        
+    @property
+    def last_modified(self):
+        return self.os_stats.last_modified
     
     def __enter__(self):
         return self
@@ -223,41 +245,37 @@ class File(object):
         for block in FileIterator(file_, self.os_stats.block_size):
             hash_.update(block)
         return hash_.hexdigest()
-        
-    def __hash__(self):
-        return self._hash
 
 
-def Resource(path, expose_directories=False, cleanup=False):
+class Base(resources.Resource):
     
-    class Resource(resources.Resource):
-        
-        @classmethod
-        def cleanup_cache(cls):
+    @classmethod
+    def configure_sqlite(cls):
+        filename = os.path.join(cls.cache_directory, 'metadata.sqlite')
+        connection = sqlite3.connect(filename)
+        # create table if it doesn't exist
+        with connection:
+            cursor = connection.cursor()
+            columns = 'os_path TEXT PRIMARY KEY, file_last_modified REAL, file_size REAL, file_hash TEXT'
+            cursor.execute('CREATE TABLE IF NOT EXISTS bocce({columns})'.format(columns=columns))
+        return connection
+            
+    @classmethod
+    def configure(cls, configuration):
+        super(Base, cls).configure(configuration)
+        # create hidden directories
+        cls.cache_directory = os.path.join(cls.path, '.bocce/')
+        if cls.cleanup_cache:
             shutil.rmtree(cls.cache_directory)
-        
-        @classmethod
-        def configure_sqlite(cls):
-            filename = os.path.join(cls.cache_directory, 'metadata.sqlite')
-            connection = sqlite3.connect(filename)
-            # create table if it doesn't exist
-            with connection:
-                cursor = connection.cursor()
-                columns = 'url_path TEXT PRIMARY KEY, file_last_modified REAL, file_size REAL, file_hash TEXT'
-                cursor.execute('CREATE TABLE IF NOT EXISTS bocce({columns})'.format(columns=columns))
-            return connection
-                
-        @classmethod
-        def configure(cls, configuration):
-            super(Resource, cls).configure(configuration)
-            # create hidden directories
-            cls.cache_directory = os.path.join(cls.path, '.bocce/')
-            if cls.cleanup:
-                cls.cleanup_cache()
-            mkdir(cls.cache_directory)
-            mkdir(os.path.join(cls.cache_directory, 'zip/'))
-            # setup sqlite
-            cls.configure_sqlite()
+        mkdir(cls.cache_directory)
+        mkdir(os.path.join(cls.cache_directory, 'zip/'))
+        # setup sqlite
+        cls.configure_sqlite()
+        if cls.is_file:
+            os_path = cls.path
+            with File(os_path, cls.cache_directory):
+                pass
+        else:
             # iterate over files in cls.path
             for base_directory, _, filenames in os.walk(cls.path, topdown=True):
                 if '.' in base_directory:
@@ -266,76 +284,110 @@ def Resource(path, expose_directories=False, cleanup=False):
                     if filename.startswith('.'):
                         continue
                     os_path = os.path.join(base_directory, filename)
-                    url_path = os.path.relpath(os_path, cls.path)
-                    with File(os_path, url_path, cls.cache_directory) as file_:
+                    with File(os_path, cls.cache_directory):
                         pass
-            
-        def __init__(self, request, route):
-            super(Resource, self).__init__(request, route)
-            self.response = responses.Response()
-
-        @property
-        def method_not_allowed_response(self):
-            response = exceptions.Response()
-            
-        @property
-        def not_found_response(self):
-            pass
-            
-        @property
-        def forbidden_response(self):
-            pass
         
-        def __enter__(self):
-            return self, {'url_path': '/'.join(self.route.matches.get('path', ('', )))}
-
-        def __call__(self, url_path):
-            if self.request.method.upper() != 'GET':
-                # 405 Method Not Allowed
-                raise self.method_not_allowed_response
-            if self.is_file and url_path not in ('', None):
-                # 404 Not Found
-                raise self.not_found_response
-            if self.is_file:
-                os_path = self.path
-            else:
-                # get absolute path for resource requested
-                os_path = os.path.abspath(os.path.join(self.path, url_path))
-            if path < self.path:
-                # 403 Forbidden
-                raise self.forbidden_response
-            # check if path is a file or directory and respond appropriately
-            if os.path.isdir(os_path):
-                if self.request.url.path.endswith('/') == False and url_path != '':
-                    raise self.not_found_response
-                if self.expose_directories == False:
-                    raise self.not_found_response
-                self.response.body = _render_directory_template(
-                    url_path, os_path, self.request.url.path
-                )
-            else:
-                # handle 
-                try:
-                    file_ = File(os_path, url_path, self.cache_directory)
-                except IOError, OSError:
-                    raise self.not_found_response
-                with file_:
-                    # check if request has etag validation that matches file_hash
-                    # return 304 Not Modified if so
-                    if hash(file_) in self.request.if_none_match:
-                        return self.not_modified_response
-                    # return zipped file
-                    if file_.should_be_zipped(self.request.accept_encoding):
-                        self.response.app_iter = file_.zip_file
-                        self.response.content_encoding = 'gzip'
-                    # return raw file
-                    else:
-                        self.response.app_iter = file_.file
-            return self.response
+    def __init__(self, request, route):
+        super(Base, self).__init__(request, route)
+        self.response = responses.Response()
     
+    def _exception_response(self, status, message):
+        response = exceptions.Response()
+        response.status = status
+        response.body = _error_template.format(
+            status=status,
+            message=message
+        )
+        return response
+    
+    @property
+    def method_not_allowed_response(self):
+        status = '405 Method Not Allowed'
+        message = 'The method {} is not permitted on the requested URL {} \
+                   on this server.'.format(str(self.request.url))
+        return self._exception_response(status, message)
+        
+    @property
+    def not_found_response(self):
+        status = '404 Not Found'
+        message = 'The requested URL {} was not found on this \
+                   server.'.format(str(self.request.url))
+        return self._exception_response(status, message)
+        
+    @property
+    def forbidden_response(self):
+        status = '403 Forbidden'
+        message = 'Access to the requested URL {} is forbidden on this \
+                   server.'.format(str(self.request.url))
+        return self._exception_response(status, message)
+        
+    @property
+    def not_modified_response(self):
+        response = exceptions.Response()
+        response.status = '304 Not Modified'
+        return response
+    
+    def __enter__(self):
+        return self, {'url_path': '/'.join(self.route.matches.get('path', ('', )))}
+
+    def __call__(self, url_path):
+        if self.request.method.upper() != 'GET':
+            # 405 Method Not Allowed
+            raise self.method_not_allowed_response
+        if self.is_file and url_path not in ('', None):
+            # 404 Not Found
+            raise self.not_found_response
+        if self.is_file:
+            os_path = self.path
+        else:
+            # get absolute path for resource requested
+            os_path = os.path.abspath(os.path.join(self.path, url_path))
+        if os_path < self.path:
+            # 403 Forbidden
+            raise self.forbidden_response
+        # check if path is a file or directory and respond appropriately
+        if os.path.isdir(os_path):
+            if self.request.url.path.endswith('/') == False and url_path != '':
+                raise self.not_found_response
+            if self.expose_directories == False:
+                raise self.not_found_response
+            self.response.body = _render_directory_template(
+                url_path, os_path, self.request.url.path
+            )
+        else:
+            # return requested file
+            try:
+                file_ = File(os_path, self.cache_directory)
+            except:# IOError, OSError:
+                raise self.not_found_response
+            with file_:
+                # check if request has etag validation that matches file_hash
+                # return 304 Not Modified if so
+                hash_ = file_.hash
+                if hash_ in self.request.if_none_match:
+                    raise self.not_modified_response
+                # return zipped file
+                if file_.should_be_zipped(self.request.accept_encoding):
+                    self.response.app_iter = file_.zip_file
+                    self.response.content_encoding = 'gzip'
+                # return raw file
+                else:
+                    self.response.app_iter = file_.file
+                self.response.content_type = file_.content_type
+                self.response.etag = hash_
+                self.response.cache_expires(self.max_age)
+                # ideally would include this, but would need When to handle conversion to GMT
+                #self.response.last_modified = file_.last_modified
+        return self.response
+
+
+def Resource(path, expose_directories=False, cleanup_cache=False, max_age=5*60, cls=Base):
+    
+    Resource = copy.deepcopy(cls)    
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
     Resource.expose_directories = expose_directories
-    Resource.cleanup = cleanup
+    Resource.max_age = max_age
+    Resource.cleanup_cache = cleanup_cache
     
     return Resource
