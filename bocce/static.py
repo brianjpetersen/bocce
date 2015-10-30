@@ -368,7 +368,7 @@ class Base(resources.Resource):
             # return requested file
             try:
                 file_ = File(os_path, self.cache_directory)
-            except IOError, OSError:
+            except:
                 raise self.not_found_response
             with file_:
                 # check if request has etag validation that matches file_hash
