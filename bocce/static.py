@@ -264,9 +264,16 @@ class Base(resources.Resource):
     def configure(cls, configuration):
         super(Base, cls).configure(configuration)
         # create hidden directories
-        cls.cache_directory = os.path.join(cls.path, '.bocce/')
+        if cls.is_file:
+            path, _ = os.path.split(cls.path)
+            cls.cache_directory = os.path.join(path, '.bocce/')
+        else:
+            cls.cache_directory = os.path.join(cls.path, '.bocce/')
         if cls.cleanup_cache:
-            shutil.rmtree(cls.cache_directory)
+            try:
+                shutil.rmtree(cls.cache_directory)
+            except OSError:
+                pass
         mkdir(cls.cache_directory)
         mkdir(os.path.join(cls.cache_directory, 'zip/'))
         # setup sqlite
@@ -358,7 +365,7 @@ class Base(resources.Resource):
             # return requested file
             try:
                 file_ = File(os_path, self.cache_directory)
-            except:# IOError, OSError:
+            except IOError, OSError:
                 raise self.not_found_response
             with file_:
                 # check if request has etag validation that matches file_hash
