@@ -264,9 +264,9 @@ class Base(resources.Resource):
         super(Base, cls).configure(configuration)
         # pull relevant details out of configuration
         static_configuration = configuration.get('static', {})
-        cls.expose_directories = False
-        cls.cleanup_cache = False
-        cls.max_age = 5*60
+        cls.expose_directories = static_configuration.get('expose_directories', False)
+        cls.cleanup_cache = static_configuration.get('cleanup_cache', False)
+        cls.max_age = static_configuration.get('max_age', 300)
         # create hidden directories
         if cls.is_file:
             path, _ = os.path.split(cls.path)
