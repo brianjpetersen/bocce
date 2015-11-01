@@ -99,11 +99,13 @@ def _render_directory_template(url_path, os_path, full_url_path):
 def mkdir(name):
     try:
         os.mkdir(name)
+        os.chmod(name, 0o777)
     except:
         pass
 
 def rm(name):
     try:
+        os.chmod(name, 0o777)
         os.remove(name)
     except:
         pass
@@ -177,6 +179,7 @@ class File(object):
     def update_zip_file(self):
         with open(self.os_path, 'rb') as source, gzip.open(self.zip_path, 'wb') as destination:
             shutil.copyfileobj(source, destination)
+        os.chmod(self.zip_path, 0o777)
     
     @property
     def zip_path(self):
@@ -252,6 +255,7 @@ class Base(resources.Resource):
     def configure_sqlite(cls):
         filename = os.path.join(cls.cache_directory, 'metadata.sqlite')
         connection = sqlite3.connect(filename)
+        os.chmod(filename, 0o777)
         # create table if it doesn't exist
         with connection:
             cursor = connection.cursor()
@@ -279,7 +283,8 @@ class Base(resources.Resource):
             except OSError:
                 pass
         mkdir(cls.cache_directory)
-        mkdir(os.path.join(cls.cache_directory, 'zip/'))
+        zip_directory = os.path.join(cls.cache_directory, 'zip/')
+        mkdir(zip_directory)
         # setup sqlite
         cls.configure_sqlite()
         if cls.is_file:
