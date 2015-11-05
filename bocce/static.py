@@ -261,7 +261,7 @@ class Base(resources.Resource):
             cursor = connection.cursor()
             columns = 'os_path TEXT PRIMARY KEY, file_last_modified REAL, file_size REAL, file_hash TEXT'
             cursor.execute('CREATE TABLE IF NOT EXISTS bocce({columns})'.format(columns=columns))
-        return connection
+        connection.close()
             
     @classmethod
     def configure(cls, configuration):
@@ -393,6 +393,7 @@ class Base(resources.Resource):
                 self.response.cache_expires(self.max_age)
                 # ideally would include this, but would need When to handle conversion to GMT
                 #self.response.last_modified = file_.last_modified
+                #self.expires
         return self.response
 
 
