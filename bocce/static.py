@@ -254,6 +254,7 @@ class Base(resources.Resource):
     @classmethod
     def configure_sqlite(cls):
         filename = os.path.join(cls.cache_directory, 'metadata.sqlite')
+        print(filename)
         connection = sqlite3.connect(filename)
         os.chmod(filename, 0o777)
         # create table if it doesn't exist
@@ -402,6 +403,9 @@ def Resource(path, base=Base):
     class Resource(base):
         
         pass
+    
+    if not (os.path.isfile(path) or os.path.isdir(path)):
+        raise OSError('Static path {} does not exist.')
     
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
