@@ -254,7 +254,6 @@ class Base(resources.Resource):
     @classmethod
     def configure_sqlite(cls):
         filename = os.path.join(cls.cache_directory, 'metadata.sqlite')
-        print(filename)
         connection = sqlite3.connect(filename)
         os.chmod(filename, 0o777)
         # create table if it doesn't exist
