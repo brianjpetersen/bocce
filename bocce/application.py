@@ -8,7 +8,7 @@ import datetime
 import traceback
 # third party libraries
 import webob
-import waitress
+import rocket
 # first party libraries
 from . import (exceptions, routing, requests, )
 
@@ -103,5 +103,29 @@ class Application:
             exception_details = specifier.format(http_details, formatted_traceback)
             self.logger.error(exception_details)
 
-    def serve(self, *args, **kwargs):
-        waitress.serve(self, *args, **kwargs)
+    def log_to_console(self, level=logging.INFO):
+        handler = logging.StreamHandler()
+        self.logger.addHandler(handler)
+        handler.setLevel(level)
+
+    def serve(self, interfaces=[('0.0.0.0', 8080), ], min_threads=1, max_threads=16, timeout=600):
+        server = rocket.Rocket(
+            interfaces, 
+            'wsgi', 
+            {"wsgi_app": self},
+            min_threads,
+            max_threads,
+            None, # queue_size: auto-discover
+            timeout,
+        )
+        # disable server logger for all but errors
+        _logger = logging.getLogger('Rocket')
+        _logger.setLevel(logging.ERROR)
+        # log and start the server
+        when = datetime.datetime.utcnow().strftime('%Y-%M-%dT%H:%m:%S')
+        self.logger.info('Server started at {} on the following interfaces:'.format(when))
+        for interface in interfaces:
+            ip_address, port = interface[0], interface[1]
+            self.logger.info('    {}:{}'.format(ip_address, port))
+        self.logger.info('')
+        server.start()
