@@ -82,7 +82,7 @@ class Application:
 
     def log(self, request, response):
         # collect details from request, response, and exception traceback (if any)
-        when = datetime.datetime.utcnow().strftime('%Y-%M-%dT%H:%m:%SZ')
+        when = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         status = response.status_code
         client_address = request.client_addr
         method = request.method
@@ -122,7 +122,7 @@ class Application:
         _logger = logging.getLogger('Rocket')
         _logger.setLevel(logging.ERROR)
         # log and start the server
-        when = datetime.datetime.utcnow().strftime('%Y-%M-%dT%H:%m:%SZ')
+        when = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         self.logger.info('Server started at {} on the following interfaces:'.format(when))
         for interface in interfaces:
             ip_address, port = interface[0], interface[1]
