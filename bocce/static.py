@@ -404,7 +404,7 @@ def Resource(path, base=Base):
         pass
     
     if not (os.path.isfile(path) or os.path.isdir(path)):
-        raise OSError('Static path {} does not exist.')
+        raise OSError('Static path {} does not exist.'.format(path))
     
     Resource.path = os.path.abspath(path)
     Resource.is_file = os.path.isfile(path)
