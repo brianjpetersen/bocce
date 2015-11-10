@@ -297,6 +297,18 @@ class Url(object):
             repr(self.path),
             repr(self.query_string),
         )
+        
+    @property
+    def query_parameters(self):
+        query_string = self.query_string
+        query_parameters = {}
+        for equality in query_string.split('&'):
+            try:
+                key, value = equality.split('=')
+                query_parameters[key] = value
+            except:
+                continue
+        return query_parameters
 
     def replace(self, **kwargs):
         url_kwargs = {
