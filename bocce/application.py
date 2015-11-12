@@ -6,6 +6,7 @@ import types
 import logging
 import datetime
 import traceback
+import warnings
 # third party libraries
 import webob
 import cherrypy
@@ -110,6 +111,9 @@ class Application:
     
     def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
         
+        if cherrypy.__version__.split('.') < ('3', '8', '0'):
+            warnings.warn('Upgrade to a newer version of cherrypy (> v3.8.0) to avoid buggy behavior.')
+        
         cherrypy.tree.graft(self, '/')
         cherrypy.server.unsubscribe()
         
@@ -141,4 +145,3 @@ class Application:
         
         cherrypy.engine.start()
         cherrypy.engine.block()
-        
