@@ -6,13 +6,7 @@ pass
 from . import (resources, responses, )
 
 
-__all__ = (
-    '__where__',
-    'NotFound',
-    'ServerError',
-    'BadRequest',
-    'DebugServerError',
-)
+__all__ = ('__where__', 'NotFound', 'ServerError', 'BadRequest', 'DebugServerError', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 

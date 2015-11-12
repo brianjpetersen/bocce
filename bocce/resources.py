@@ -10,13 +10,6 @@ __all__ = ('Resource', '__where__', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-class _ExceptionResponse(responses.Response, Exception):
-    # defining here to avoid circular dependency (can't import 
-    # exceptions here because it depends on this file).
-
-    def __init__(self):
-        super(_ExceptionResponse, self).__init__()
-
 class Resource(object):
 
     def __init__(self, request, route):
@@ -38,7 +31,8 @@ class Resource(object):
 
     def require_https(self):
         if self.request.url.scheme != 'https':
-            response = _ExceptionResponse()
+            from . import exceptions
+            response = exceptions.Response()
             response.status = '301 Moved Permanently'
             response.location = str(
                 self.request.url.replace(scheme='https', port=443)
