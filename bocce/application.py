@@ -53,7 +53,7 @@ class Application:
                 resource = route.resource(request, route)
             with resource as (handler, kwargs):
                 response = handler(**kwargs)
-        except responses.Response as response:
+        except exceptions.Response as response:
             pass
         except:
             exception = {}
