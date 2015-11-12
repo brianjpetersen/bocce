@@ -13,7 +13,9 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 class _ExceptionResponse(responses.Response, Exception):
     # defining here to avoid circular dependency (can't import 
     # exceptions here because it depends on this file).
-    pass
+
+    def __init__(self):
+        super(_ExceptionResponse, self).__init__()
 
 class Resource(object):
 

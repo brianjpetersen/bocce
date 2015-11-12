@@ -11,7 +11,7 @@ import warnings
 import webob
 import cherrypy
 # first party libraries
-from . import (exceptions, routing, requests, )
+from . import (exceptions, routing, requests, responses, )
 
 
 __all__ = ('__where__', 'Application', )
@@ -53,7 +53,7 @@ class Application:
                 resource = route.resource(request, route)
             with resource as (handler, kwargs):
                 response = handler(**kwargs)
-        except exceptions.Response as response:
+        except responses.Response as response:
             pass
         except:
             exception = {}
