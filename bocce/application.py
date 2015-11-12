@@ -8,7 +8,7 @@ import datetime
 import traceback
 # third party libraries
 import webob
-import rocket
+import cherrypy
 # first party libraries
 from . import (exceptions, routing, requests, )
 
@@ -107,25 +107,38 @@ class Application:
         handler = logging.StreamHandler()
         self.logger.addHandler(handler)
         handler.setLevel(level)
-
-    def serve(self, interfaces=[('0.0.0.0', 8080), ], min_threads=1, max_threads=16, timeout=600):
-        server = rocket.Rocket(
-            interfaces, 
-            'wsgi', 
-            {"wsgi_app": self},
-            min_threads,
-            max_threads,
-            None, # queue_size: auto-discover
-            timeout,
-        )
-        # disable server logger for all but errors
-        _logger = logging.getLogger('Rocket')
-        _logger.setLevel(logging.ERROR)
-        # log and start the server
+    
+    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
+        
+        cherrypy.tree.graft(self, '/')
+        cherrypy.server.unsubscribe()
+        
         when = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         self.logger.info('Server started at {} on the following interfaces:'.format(when))
+        
         for interface in interfaces:
-            ip_address, port = interface[0], interface[1]
-            self.logger.info('    {}:{}'.format(ip_address, port))
-        self.logger.info('')
-        server.start()
+            host = interface.get('host', '127.0.0.1')
+            port = interface.get('port', 8080)
+            threads = interface.get('threads', 16)
+            ssl_certificate = interface.get('ssl_certificate', None)
+            ssl_private_key = interface.get('ssl_private_key', None)
+            
+            self.logger.info('    {}:{}'.format(host, port))
+            server = cherrypy._cpserver.Server()
+            server.socket_host = host
+            server.socket_port = port
+            server.thread_pool = threads
+            
+            if ssl_certificate is not None and ssl_private_key is not None:
+                server.ssl_module = 'builtin'
+                server.ssl_certificate = ssl_certificate
+                server.ssl_private_key = ssl_private_key
+            
+            server.subscribe()
+        
+        cherrypy.log.screen = False
+        cherrypy.engine.autoreload.unsubscribe()
+        
+        cherrypy.engine.start()
+        cherrypy.engine.block()
+        
