@@ -55,3 +55,37 @@ class DebugServerErrorResource(ServerErrorResource):
         response.status = '500 Internal Server Error'
         response.body = self.exception['traceback']
         return response
+
+
+def TemporaryRedirectResource(**location):
+
+    class TemporaryRedirectResource(Resource):
+    
+        def __init__(self, request, route):
+            super(TemporaryRedirectResource, self).__init__(request, route)
+            
+        def __call__(self):
+            response = responses.Response()
+            response.status = '307 Temporary Redirect'
+            url = self.request.url.replace(**location)
+            response.location = str(url)
+            return response
+            
+    return TemporaryRedirectResource
+
+
+def MovedPermanentlyResource(**location):
+
+    class MovedPermanentlyResource(Resource):
+    
+        def __init__(self, request, route):
+            super(MovedPermanentlyResource, self).__init__(request, route)
+            
+        def __call__(self):
+            response = responses.Response()
+            response.status = '301 Moved Permanently'
+            url = self.request.url.replace(**location)
+            response.location = str(url)
+            return response
+    
+    return MovedPermanentlyResource
