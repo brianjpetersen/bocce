@@ -48,7 +48,7 @@ class Application:
             request = self.Request(environ)
             route = request.route = self.routes.match(request.path)
             if isinstance(route, routing.Detour):
-                resource = self.not_found_resource(request)
+                resource = self.not_found_resource(request, None)
             else:
                 resource = route.resource(request, route)
             with resource as (handler, kwargs):
