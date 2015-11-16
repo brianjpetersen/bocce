@@ -140,10 +140,13 @@ class Application:
             
             server.subscribe()
         
-        #cherrypy.log.screen = False
         cherrypy.log.access_log.setLevel(logging.ERROR)
         cherrypy.log.error_log.setLevel(logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
+        
+        pid = str(os.getpid())
+        with open('pid', 'wb') as f:
+            f.write(pid)
         
         cherrypy.engine.start()
         cherrypy.engine.block()
