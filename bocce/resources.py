@@ -6,7 +6,7 @@ pass
 from . import (requests, responses, )
 
 
-__all__ = ('Resource', '__where__', )
+__all__ = ('Resource', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -16,6 +16,12 @@ class Resource(object):
         self.request = request
         self.route = route
         self.response = responses.Response()
+        # ideally, this would be imported above; however, this leads to a 
+        # circular import (because exceptions relies on the base resource,
+        # and the base resource handler needs access to the exceptions base
+        # response).
+        from . import exceptions
+        self.exceptions = exceptions
 
     @classmethod
     def configure(cls, configuration):
@@ -31,8 +37,7 @@ class Resource(object):
 
     def require_https(self):
         if self.request.url.scheme != 'https':
-            from . import exceptions
-            response = exceptions.Response()
+            response = self.exceptions.Response()
             response.status = '301 Moved Permanently'
             response.location = str(
                 self.request.url.replace(scheme='https', port=443)

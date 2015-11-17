@@ -8,7 +8,7 @@ pass
 
 
 __all__ = ('VerbatimSegment', 'CurlySegment', 'PointySegment', 
-           'Segment', 'Path', 'VerbatimPath', '__where__')
+           'Segment', 'Path', 'VerbatimPath', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 

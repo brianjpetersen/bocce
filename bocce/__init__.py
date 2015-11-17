@@ -8,10 +8,9 @@ from . import (application, exceptions, caching, routing, paths, resources, stat
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
-__all__ = ('Application', 'Routes', 'Path', 'Resource', 'StaticResource', 'StaticBase', 
+__all__ = ('Application', 'Routes', 'Path', 'Resource', 'StaticResource', 'StaticBaseResource', 
            'Request', 'application', 'exceptions', 'routing', 'caching', 'paths', 
-           'Response', 'resources', 'surly',
-           '__where__', '__version__', )
+           'Response', 'resources', 'surly', )
 
 
 with open(os.path.join(__where__, '..', 'VERSION'), 'rb') as f:
@@ -23,6 +22,6 @@ Routes = routing.Routes
 Path = paths.Path
 Resource = resources.Resource
 StaticResource = static.Resource
-StaticBase = static.Base
+StaticBaseResource = static.BaseResource
 Request = requests.Request
 Response = responses.Response

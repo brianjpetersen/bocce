@@ -7,7 +7,7 @@ pass
 from . import (paths, caching, )
 
 
-__all__ = ('Routes', 'Route', 'Detour', '__where__', )
+__all__ = ('Routes', 'Route', 'Detour', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -212,7 +212,7 @@ class Routes(collections.MutableMapping):
         if cache is None:
             self._cache = None
         else:
-            self._cache = caching.LRUCache(cache)
+            self._cache = caching.LeastRecentlyUsed(cache)
         # whether to raise an exception on a duplicate
         self.raise_on_duplicate = raise_on_duplicate
 

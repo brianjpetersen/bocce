@@ -6,7 +6,7 @@ import webob
 pass
 
 
-__all__ = ('Response', '__where__')
+__all__ = ('Response', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 

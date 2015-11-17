@@ -7,32 +7,11 @@ pass
 pass
 
 
-__all__ = ('LRUCache', 'sparsify_dict', '__where__')
+__all__ = ('LeastRecentlyUsed', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-def sparsify_dict(d):
-    """ Improve dictionary sparsity.
-
-        The dict.update() method makes space for non-overlapping keys.
-        Giving it a dictionary with 100% overlap will build the same
-        dictionary in the larger space.  The resulting dictionary will
-        be no more that 1/3 full.  As a result, lookups require less
-        than 1.5 probes on average.
-
-        >>> import __builtin__
-        >>> sparsify(__builtin__.__dict__)
-
-        Shamelessly stolen from Raymond Hettinger's ActiveState recipe:
-
-        http://bit.ly/1hg3xHL
-
-    """
-    e = d.copy()
-    d.update(e)
-
-
-class LRUCache(collections.MutableMapping):
+class LeastRecentlyUsed(collections.MutableMapping):
 
     def __init__(self, size=None):
         if not isinstance(size, (int, float)):

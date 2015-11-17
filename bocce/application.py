@@ -14,16 +14,16 @@ import cherrypy
 from . import (exceptions, routing, requests, responses, )
 
 
-__all__ = ('__where__', 'Application', )
+__all__ = ('Application', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-def indent(string, number=4, char=' '):
+def _indent(string, number=4, char=' '):
     indent = number * char
     return indent + ('\n' + indent).join(string.split('\n'))
 
 
-def remove_blanks(string):
+def _remove_blanks(string):
     return '\n'.join([line for line in string.splitlines() if line.strip()])
 
 
@@ -99,12 +99,12 @@ class Application:
         else:
             exception = getattr(response, 'exception', {})
             exception_traceback = exception.get('traceback', '')
-            formatted_traceback = remove_blanks(indent(exception_traceback))
+            formatted_traceback = _remove_blanks(_indent(exception_traceback))
             specifier = '{}\n\n{}\n'
             exception_details = specifier.format(http_details, formatted_traceback)
             self.logger.error(exception_details)
 
-    def log_to_console(self, level=logging.INFO):
+    def enable_logging_to_console(self, level=logging.INFO):
         handler = logging.StreamHandler()
         self.logger.addHandler(handler)
         handler.setLevel(level)
@@ -118,7 +118,8 @@ class Application:
         cherrypy.server.unsubscribe()
         
         when = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-        self.logger.info('Server started at {} on the following interfaces:'.format(when))
+        pid = str(os.getpid())
+        self.logger.info('Server started at {} in PID {} on the following interfaces:'.format(when, pid))
         
         for interface in interfaces:
             host = interface.get('host', '127.0.0.1')
@@ -144,9 +145,9 @@ class Application:
         cherrypy.log.error_log.setLevel(logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
         
-        pid = str(os.getpid())
-        with open('pid', 'wb') as f:
-            f.write(pid)
-        
-        cherrypy.engine.start()
-        cherrypy.engine.block()
+        try:
+            cherrypy.engine.start()
+            cherrypy.engine.block()
+        finally:
+            when = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            self.logger.info('Server stopped at {}.'.format(when))

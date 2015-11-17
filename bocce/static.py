@@ -1,19 +1,19 @@
 # standard libraries
 import os
-import mimetypes
-import shutil
-import hashlib
-import gzip
 import collections
-import sqlite3
 import datetime
+import hashlib
+import shutil
+import gzip
+import mimetypes
+import sqlite3
 # third party libraries
 pass
 # first party libraries
 from . import (responses, resources, exceptions, )
 
 
-__all__ = ('Resource', '__where__', )
+__all__ = ('BaseResource', 'Resource', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -96,14 +96,14 @@ def _render_directory_template(url_path, os_path, full_url_path):
     )
 
 
-def mkdir(name):
+def _mkdir(name):
     try:
         os.mkdir(name)
         os.chmod(name, 0o777)
     except:
         pass
 
-def rm(name):
+def _rm(name):
     try:
         os.chmod(name, 0o777)
         os.remove(name)
@@ -153,19 +153,20 @@ class File(object):
             self.cache_stats = self.update_cache()
         # update cache if it's stale and cleanup any unneeded zip files
         if self.is_cache_stale:
-            rm(self.zip_path)
+            _rm(self.zip_path)
             self.cache_stats = self.update_cache()
         # update cached zip file
-        if os.path.isfile(self.zip_path) == False and self.should_be_zipped():
+        if os.path.isfile(self.zip_path) == False and self.should_be_compressed():
             self.update_zip_file()
     
-    def should_be_zipped(self, accept_encoding=('gzip', )):
-        return (
+    def should_be_compressed(self, accept_encoding=('gzip', )):
+        should_be_compressed = (
             (self.os_stats.size >= 128) and 
             (self.os_stats.content_type in mimetypes_to_compress) and
             ('gzip' in accept_encoding)
         )
-        
+        return should_be_compressed
+                
     @property
     def file(self):
         file_ = open(self.os_path, 'rb')
@@ -249,7 +250,7 @@ class File(object):
         return hash_.hexdigest()
 
 
-class Base(resources.Resource):
+class BaseResource(resources.Resource):
     
     @classmethod
     def configure_sqlite(cls):
@@ -265,12 +266,13 @@ class Base(resources.Resource):
             
     @classmethod
     def configure(cls, configuration):
-        super(Base, cls).configure(configuration)
+        super(BaseResource, cls).configure(configuration)
         # pull relevant details out of configuration
         static_configuration = configuration.get('static', {})
         cls.expose_directories = static_configuration.get('expose_directories', False)
         cls.cleanup_cache = static_configuration.get('cleanup_cache', False)
         cls.max_age = static_configuration.get('max_age', 300)
+        cls.compress = static_configuration.get('compress', True)
         # create hidden directories
         if cls.is_file:
             path, _ = os.path.split(cls.path)
@@ -282,9 +284,9 @@ class Base(resources.Resource):
                 shutil.rmtree(cls.cache_directory)
             except OSError:
                 pass
-        mkdir(cls.cache_directory)
+        _mkdir(cls.cache_directory)
         zip_directory = os.path.join(cls.cache_directory, 'zip/')
-        mkdir(zip_directory)
+        _mkdir(zip_directory)
         # setup sqlite
         cls.configure_sqlite()
         if cls.is_file:
@@ -382,7 +384,7 @@ class Base(resources.Resource):
                 if hash_ in self.request.if_none_match:
                     raise self.not_modified_response
                 # return zipped file
-                if file_.should_be_zipped(self.request.accept_encoding):
+                if file_.should_be_compressed(self.request.accept_encoding) and self.compress:
                     self.response.app_iter = file_.zip_file
                     self.response.content_encoding = 'gzip'
                 # return raw file
@@ -391,16 +393,12 @@ class Base(resources.Resource):
                 self.response.content_type = file_.content_type
                 self.response.etag = hash_
                 self.response.cache_expires(self.max_age)
-                # ideally would include this, but would need When to handle conversion to GMT
-                #self.response.last_modified = file_.last_modified
-                #self.expires
         return self.response
 
 
-def Resource(path, base=Base):
+def Resource(path, base=BaseResource):
     
     class Resource(base):
-        
         pass
     
     if not (os.path.isfile(path) or os.path.isdir(path)):

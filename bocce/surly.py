@@ -8,7 +8,7 @@ pass
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
-__all__ = ('__where__', 'Url', )
+__all__ = ('Url', )
 
 
 def dump_top_level_domains():

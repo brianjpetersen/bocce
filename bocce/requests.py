@@ -6,7 +6,7 @@ import webob
 from . import surly
 
 
-__all__ = ('Request', '__where__')
+__all__ = ('Request', )
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
