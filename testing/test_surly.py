@@ -7,7 +7,7 @@ import bocce.surly as surly
 
 
 @pytest.mark.parametrize(
-    'input, expected',
+    'host, host_components',
     [
         (
             'a.b.com',
@@ -43,8 +43,8 @@ import bocce.surly as surly
         ),
     ]
 )
-def test_split_http_host(input, expected):
-    assert surly.split_host(input) == expected
+def test_split_http_host(host, host_components):
+    assert surly.split_host(host) == host_components
 
 
 def construct_url_dict(**components):
@@ -137,7 +137,7 @@ def test_construct_url(input, expected):
     assert surly.construct_url(**input) == expected
 
 
-class TestQueryString(object):
+class TestQueryString:
     
     def test_str(self):
         query_string = surly.QueryString.from_string('a=1&b=2&c=3')
@@ -176,7 +176,12 @@ class TestQueryString(object):
         assert str(query_string) == 'a=1&b=2'
 
 
-class TestUrl(object):
+class TestUrl:
+    
+    def test_url_localhost(self):
+        url = surly.Url.from_string('localhost')
+        assert url.path is None
+        assert url.scheme is None
     
     def test_url_from_string(self):
         url = 'https://username:password@localhost:443/a/b?test=3#frag'

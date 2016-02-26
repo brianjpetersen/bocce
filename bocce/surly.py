@@ -190,7 +190,12 @@ def construct_url(host=None, path=None, scheme=None, query_string=None,
     if host is not None:
         url += host
     if port is not None:
-        url += ':{}'.format(port)
+        if port == 80 and scheme == 'http':
+            pass
+        elif port == 443 and scheme == 'https':
+            pass
+        else:
+            url += ':{}'.format(port)
     if path is not None:
         if path.startswith('/'):
             url += path
@@ -204,10 +209,22 @@ def construct_url(host=None, path=None, scheme=None, query_string=None,
     
 
 class QueryString(collections.abc.MutableMapping):
-    """ An ordered multi-dict for representing query strings.
+    """ A mutable ordered multi-dict for representing query strings.
         
-        >>> query_string = 'a=1&b=2&c=3'
-        >>> QueryString
+        >>> query_string = QueryString.from_string('a=1&b=2&c=3')
+        >>> query_string['a']
+        '1'
+        >>> str(query_string)
+        'a=1&b=2&c=3'
+        
+        >>> query_string = QueryString.from_string('a=1&b=2&a=3')
+        >>> query_string['a']
+        ['1', '3']
+        >>> query_string.get_first('a')
+        '1'
+        >>> query_string.get_last('a')
+        '3'
+        
     """
     _separator_regex = re.compile(re.escape('&') + '|' + re.escape(';'))
     
@@ -288,7 +305,7 @@ class QueryString(collections.abc.MutableMapping):
         return self._dict[key][-1]
 
 
-class Url(object):
+class Url: # tk derive from tuple to make immutable?
     
     def __init__(self, host=None, path=None, scheme=None, query_string=None,
                  port=None, fragment=None, user=None, password=None, 
@@ -305,13 +322,16 @@ class Url(object):
         else:
             self._processed_port = int(port)
         self._path = path
-        self._processed_path = path.lstrip('/ ')
+        if path is None:
+            self._processed_path = None
+        else:
+            self._processed_path = path.lstrip('/ ').rstrip()
         self._query_string = query_string
         if query_string is None:
             self._processed_query_string = query_string
         elif isinstance(query_string, collections.abc.Mapping):
             self._processed_query_string = QueryString(query_string.items())
-        elif isinstance(query_string, str):
+        elif isinstance(query_string, (str, bytes, )):
             self._processed_query_string = QueryString.from_string(
                 self._query_string
             )
@@ -365,7 +385,7 @@ class Url(object):
     @property
     def path(self):
         return self._processed_path
-
+    
     @property
     def query_string(self):
         return self._processed_query_string.copy()
@@ -373,7 +393,7 @@ class Url(object):
     @property
     def fragment(self):
         return self._fragment
-
+    
     @classmethod
     def from_string(cls, url_string):
         url_components = split_url(url_string.strip())

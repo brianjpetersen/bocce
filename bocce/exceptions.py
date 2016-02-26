@@ -3,90 +3,73 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (resources, responses, )
+from . import (http, )
 
 
-__all__ = ('NotFound', 'ServerError', 'BadRequest', 'DebugServerError', 
-           'TemporaryRedirectResource', 'MovedPermanentlyResource')
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-class Response(responses.Response, Exception):
+template = \
+    '''
+    <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+    <html>
+        <head>
+            <title>{status}</title>
+            <link href='https://fonts.googleapis.com/css?family=Varela+Round'
+                  rel='stylesheet' type='text/css'>
+            <link href='https://fonts.googleapis.com/css?family=Roboto+Mono' 
+                  rel='stylesheet' type='text/css'>
+            <style type="text/css">
+                body{{
+                    background-color: #f1f1f1;
+                    font-family: 'Varela Round', sans-serif;
+                    color: #252226;
+                }}
+                .traceback{{
+                    font-family: 'Roboto Mono', monospace;
+                }}
+                hr{{
+                    color: #252226;
+                    background-color: #252226;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>{status}</h1>
+            <p>{message}</p>
+            {traceback}
+        </body>
+    </html>
+    '''
+
+
+class Response(http.Response, Exception):
     
     def __init__(self):
         super(Response, self).__init__()
 
 
-class Resource(resources.Resource, Exception):
-    
-    def __init__(self, request, route):
-        super(Resource, self).__init__(request, route)
-
-
-class NotFoundResource(Resource):
-
-    def __init__(self, request):
-        super(NotFoundResource, self).__init__(request, None)
+class NotFoundResponse(Response):
         
-    def __call__(self):
-        response = responses.Response()
-        response.status = '404 Not Found'
-        return response
+    def handle(self):
+        self.status = status = '404 Not Found'
+        self.content_type = 'text/html'
+        self.body = template.format(status, message, traceback=None)
 
 
-class ServerErrorResource(Resource):
-
-    def __init__(self, request, exception):
-        super(ServerErrorResource, self).__init__(request, None)
-        self.exception = exception
+class ServerErrorResponse(Response):
+    
+    def __init__(self, debug=False):
+        super(ServerErrorResponse, self).__init__()
+        self.debug = debug
         
-    def __call__(self):
-        response = responses.Response()
-        response.status = '500 Internal Server Error'
-        return response
-
-
-class DebugServerErrorResource(ServerErrorResource):
-    
-    def __init__(self, request, exception):
-        super(DebugServerErrorResource, self).__init__(request, exception)
-        
-    def __call__(self):
-        response = responses.Response()
-        response.status = '500 Internal Server Error'
-        response.body = self.exception['traceback']
-        return response
-
-
-def TemporaryRedirectResource(**location):
-
-    class TemporaryRedirectResource(Resource):
-    
-        def __init__(self, request, route):
-            super(TemporaryRedirectResource, self).__init__(request, route)
-            
-        def __call__(self):
-            response = responses.Response()
-            response.status = '307 Temporary Redirect'
-            url = self.request.url.replace(**location)
-            response.location = str(url)
-            return response
-            
-    return TemporaryRedirectResource
-
-
-def MovedPermanentlyResource(**location):
-
-    class MovedPermanentlyResource(Resource):
-    
-        def __init__(self, request, route):
-            super(MovedPermanentlyResource, self).__init__(request, route)
-            
-        def __call__(self):
-            response = responses.Response()
-            response.status = '301 Moved Permanently'
-            url = self.request.url.replace(**location)
-            response.location = str(url)
-            return response
-    
-    return MovedPermanentlyResource
+    def handle(self):
+        self.status = status = '500 Internal Server Error'
+        self.content_type = 'text/html'
+        if self.debug:
+            traceback = '<pre id="traceback">{traceback}</pre>'.format(
+                self.traceback
+            )
+        else:
+            traceback = ''
+        self.body = template.format(status, message, traceback)
