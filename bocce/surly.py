@@ -4,8 +4,7 @@ import re
 import copy
 import collections.abc
 import urllib.parse
-import threading
-import copy
+import operator
 # third party libraries
 pass
 # first party libraries
@@ -190,12 +189,7 @@ def construct_url(host=None, path=None, scheme=None, query_string=None,
     if host is not None:
         url += host
     if port is not None:
-        if port == 80 and scheme == 'http':
-            pass
-        elif port == 443 and scheme == 'https':
-            pass
-        else:
-            url += ':{}'.format(port)
+        url += ':{}'.format(port)
     if path is not None:
         if path.startswith('/'):
             url += path
@@ -206,7 +200,7 @@ def construct_url(host=None, path=None, scheme=None, query_string=None,
     if fragment is not None:
         url += '#{}'.format(fragment)
     return url
-    
+
 
 class QueryString(collections.abc.MutableMapping):
     """ A mutable ordered multi-dict for representing query strings.
@@ -228,7 +222,9 @@ class QueryString(collections.abc.MutableMapping):
     """
     _separator_regex = re.compile(re.escape('&') + '|' + re.escape(';'))
     
-    def __init__(self, items=[], separator='&', quote=False):
+    def __init__(self, items=None, separator='&', quote=False):
+        if items is None:
+            items = []
         self.separator = separator
         self.quote = quote
         self._dict = {}
@@ -260,27 +256,26 @@ class QueryString(collections.abc.MutableMapping):
             return value
         
     def __setitem__(self, key, value):
-        with threading.Lock() as lock:
-            if key not in self._dict:
-                self._dict[key] = []
-            self._dict[key].append(str(value))
-            self._items.append((key, str(value)))
+        if key not in self._dict:
+            self._dict[key] = []
+        if value is not None:
+            value = str(value)
+        self._dict[key].append(value)
+        self._items.append((key, value))
             
     def __delitem__(self, key):
-        with threading.Lock() as lock:
-            del self._dict[key]
-            self._items = [(k, v) for k, v in self._items if k != key]
+        del self._dict[key]
+        self._items = [(k, v) for k, v in self._items if k != key]
         
     def __iter__(self):
-        return self._dict.__iter__()
+        return iter(self._items)
         
     def __len__(self):
-        return len(self._dict)
+        return len(self._items)
     
     def __repr__(self):
-        return '{}{}'.format(
-            self.__class__.__name__, 
-            tuple((k, v) for k, v in self._items)
+        return '{}.{}{}'.format(
+            self.__module__, self.__class__.__name__, tuple(self._items)
         )
     
     def __str__(self):
@@ -296,120 +291,140 @@ class QueryString(collections.abc.MutableMapping):
         return self.separator.join(string_list)
     
     def copy(self):
-        return copy.copy(self)
+        return copy.deepcopy(self)
     
-    def get_first(self, key):
-        return self._dict[key][0]
+    def get_first(self, key, default=None):
+        if key in self._dict:
+            return self._dict[key][0]
+        else:
+            return default
     
-    def get_last(self, key):
-        return self._dict[key][-1]
+    def get_last(self, key, default=None):
+        if key in self._dict:
+            return self._dict[key][-1]
+        else:
+            return default
+        
+    def get_all(self, key):
+        return self.get(key, [])
+        
+    def __getnewargs__(self):
+        return (self._items, self.separator, self.quote, )
 
 
-class Url: # tk derive from tuple to make immutable?
+class Url(tuple):
+    """ A immutable URL class.
+        
+    """
     
-    def __init__(self, host=None, path=None, scheme=None, query_string=None,
-                 port=None, fragment=None, user=None, password=None, 
-                 quote=False):
-        self.quote = quote
-        self._scheme = scheme
-        self._user = user
-        self._password = password
-        self._host = host
-        self._subdomains, self._domain, self._top_level_domain = split_host(host)
-        self._port = port
-        if port is None:
-            self._processed_port = port
-        else:
-            self._processed_port = int(port)
-        self._path = path
-        if path is None:
-            self._processed_path = None
-        else:
-            self._processed_path = path.lstrip('/ ').rstrip()
-        self._query_string = query_string
-        if query_string is None:
-            self._processed_query_string = query_string
-        elif isinstance(query_string, collections.abc.Mapping):
-            self._processed_query_string = QueryString(query_string.items())
+    __slots__ = ()
+    
+    def __new__(cls, host=None, path=None, scheme=None, query_string=None,
+                port=None, fragment=None, user=None, password=None, 
+                quote=False):
+        subdomains, domain, top_level_domain = split_host(host)
+        if port is not None:
+            port = int(port)
+        if path is not None:
+            path = path.lstrip('/ ').rstrip()
+        if isinstance(query_string, collections.abc.Mapping):
+            query_string = QueryString(query_string.items())
         elif isinstance(query_string, (str, bytes, )):
-            self._processed_query_string = QueryString.from_string(
-                self._query_string
-            )
-        else:
-            raise TypeError('Variable query_string must be either string-like \
-                             or dict-like')
-        self._fragment = fragment
-        self._components = collections.OrderedDict([
-            ('host', host),
-            ('path', path),
-            ('scheme', scheme),
-            ('query_string', query_string),
-            ('port', port),
-            ('fragment', fragment),
-            ('user', user),
-            ('password', password),
-        ])
+            query_string = QueryString.from_string(query_string)
+        elif query_string is not None:
+            raise TypeError('Variable query_string must be either string-like '
+                            'or dict-like')
+        url_tuple = (
+            host, path, scheme, query_string, port, fragment, user, password,
+            quote, subdomains, domain, top_level_domain,
+        )
+        return tuple.__new__(cls, url_tuple)
     
-    @property
-    def scheme(self):
-        return self._scheme
-        
-    @property
-    def user(self):
-        return self._user
-        
-    @property
-    def password(self):
-        return self._password
+    def _by_index(index):
+        def getter(self):
+            return tuple.__getitem__(self, index)
+        return getter
     
-    @property
-    def host(self):
-        return self._host
-    
-    @property    
-    def subdomains(self):
-        return self._subdomains
-    
-    @property
-    def domain(self):
-        return self._domain
-    
-    @property
-    def top_level_domain(self):    
-        return self._top_level_domain
-    
-    @property
-    def port(self):
-        return self._processed_port
-    
-    @property
-    def path(self):
-        return self._processed_path
-    
+    host = property(_by_index(0))
+    path = property(_by_index(1))
+    scheme = property(_by_index(2))
+
     @property
     def query_string(self):
-        return self._processed_query_string.copy()
+        query_string = tuple.__getitem__(self, 3)
+        if query_string is None:
+            return None
+        else:
+            return query_string.copy()
     
-    @property
-    def fragment(self):
-        return self._fragment
+    port = property(_by_index(4))
+    fragment = property(_by_index(5))
+    user = property(_by_index(6))
+    password = property(_by_index(7))
+    quote = property(_by_index(8))
+    subdomains = property(_by_index(9))
+    domain = property(_by_index(10))
+    top_level_domain = property(_by_index(11))
     
     @classmethod
     def from_string(cls, url_string):
-        url_components = split_url(url_string.strip())
-        return cls(**url_components)
+        url_inputs = split_url(url_string.strip())
+        return cls(**url_inputs)
+    
+    @classmethod
+    def from_environment(cls, environment):
+        scheme = environment.get('wsgi.url_scheme', None) or None
+        host = environment.get(
+                'HTTP_HOST', environment.get('SERVER_NAME', None)
+        ) or None
+        if ':' in host:
+            host, port = host.split(':')
+        else:
+            port = environment.get('SERVER_PORT', None) or None
+        query_string = environment.get('QUERY_STRING', None) or None
+        path = '{}{}'.format(
+                environment.get('SCRIPT_NAME', ''), 
+                environment.get('PATH_INFO', '')
+        ) or None
+        return cls(
+            scheme=scheme, host=host, port=port, query_string=query_string,
+            path=path
+        )
     
     def replace(self, **replacements):
         cls = self.__class__
-        url_components = self._components.copy()
-        url_components.update(replacements)
-        return cls(**url_components)
+        url_inputs = {
+            'host': self.host,
+            'path': self.path,
+            'scheme': self.scheme,
+            'query_string': self.query_string,
+            'port': self.port,
+            'fragment': self.fragment,
+            'user': self.user,
+            'password': self.password,
+            'quote': self.quote,
+        }
+        url_inputs.update(replacements)
+        return cls(**url_inputs)
     
     def __repr__(self):
-        return '{}{}'.format(
-            self.__class__.__name__, 
-            tuple(self._components.values()) + (self.quote, )
-        )
+        return '{}{}'.format(self.__class__.__name__, self.__getnewargs__(), )
     
     def __str__(self):
-        return construct_url(quote=self.quote, **self._components)
+        return construct_url(
+            host=self.host,
+            path=self.path,
+            scheme=self.scheme,
+            query_string=self.query_string,
+            port=self.port,
+            fragment=self.fragment,
+            user=self.user,
+            password=self.password,
+            quote=self.quote,
+        )
+    
+    def __getnewargs__(self):
+        return (
+            self.host, self.path, self.scheme, self.query_string, self.port, 
+            self.fragment, self.user, self.password, self.quote,
+        )

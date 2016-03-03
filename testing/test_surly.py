@@ -146,7 +146,7 @@ class TestQueryString:
     def test_repr(self):
         query_string = surly.QueryString.from_string('a=1&b=2&c=3')
         assert repr(query_string) == \
-               "QueryString(('a', '1'), ('b', '2'), ('c', '3'))"
+               "bocce.surly.QueryString(('a', '1'), ('b', '2'), ('c', '3'))"
 
     def test_get_singleton(self):
         query_string = surly.QueryString.from_string('a=1&b=2&c=3')
@@ -174,6 +174,10 @@ class TestQueryString:
         query_string_dict_items = [('a', 1), ('b', 2)]
         query_string = surly.QueryString(query_string_dict_items)
         assert str(query_string) == 'a=1&b=2'
+        
+    def test_without_pair(self):
+        query_string = surly.QueryString.from_string('a&b=2;c=3')
+        assert str(query_string) == 'a&b=2&c=3'
 
 
 class TestUrl:

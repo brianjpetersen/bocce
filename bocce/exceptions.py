@@ -3,7 +3,7 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (http, )
+from . import (responses, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +43,7 @@ template = \
     '''
 
 
-class Response(http.Response, Exception):
+class Response(responses.Response, Exception):
     
     def __init__(self):
         super(Response, self).__init__()

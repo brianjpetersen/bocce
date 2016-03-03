@@ -5,7 +5,7 @@ import warnings
 # third party libraries
 import cherrypy
 # first party libraries
-from . import (routing, exceptions, http, )
+from . import (routing, exceptions, requests, responses, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -13,21 +13,22 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 
 class Application:
     
+    Request = requests.Request
+    
     def __init__(self):
         self.routes = routing.Routes()
         self.configuration = {}
-        # exception response
         self.not_found_response = exceptions.NotFoundResponse()
         self.server_error_response = exceptions.ServerErrorResponse(debug=False)
     
     def __call__(self, environment, start_response):
         try:
             configuration = self.configuration
-            request = http.Request(environment)
+            request = self.Request.from_environment(environment)
             match = self.routes.match(
                 request.url.path,
-                request.method,
-                request.subdomain,
+                request.http.method,
+                request.url.subdomain,
             )
             if match is None:
                 request.route = request.segments = None

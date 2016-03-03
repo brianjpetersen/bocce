@@ -3,7 +3,7 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (application, routing, static, surly, )
+from . import (application, routing, static, surly, requests, responses, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -19,3 +19,5 @@ Route = routing.Route
 Routes = routing.Routes
 Application = application.Application
 Url = surly.Url
+Request = requests.Request
+Response = responses.Response
