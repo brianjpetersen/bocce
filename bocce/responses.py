@@ -8,31 +8,9 @@ import json
 import werkzeug
 # first party libraries
 from . import (logging, surly, utils, headers, )
-Headers = headers.Mutable
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
-
-
-class Cookie:
-    
-    pass
-
-
-class Cookies(collections.abc.MutableMapping):
-    
-    def __init__(self, _response):
-        self._response = _response
-        self._cookies = {}
-    
-    def set(self, key, value='', max_age=None, expires=None, path='/', 
-            domain=None, secure=None, httponly=False):
-        self._response.set_cookie(
-            key, value, max_age, expires, path, domain, secure, httponly,
-        )
-    
-    def __setitem__(self, ):
-        pass
 
 
 def log(request, response, configuration):
@@ -69,8 +47,8 @@ class Response:
         self.before = copy.deepcopy(self.before)
         self.after = copy.deepcopy(self.after)
         # abstract over response
-        _response = self._response = werkzeug.Response()
-        self.headers = _response.headers
+        self.headers = headers.Response()
+        self.cookies = self.headers.cookies
         # status_code
         # status
         
@@ -80,7 +58,7 @@ class Response:
         pass
     
     def respond(self, environment, start_response):
-        self._response(environment, start_response)
+        pass
 
 
 Response = werkzeug.Response

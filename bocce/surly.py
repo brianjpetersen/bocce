@@ -8,7 +8,7 @@ import operator
 # third party libraries
 pass
 # first party libraries
-pass
+from . import utils
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -312,59 +312,46 @@ class QueryString(collections.abc.MutableMapping):
         return (self._items, self.separator, self.quote, )
 
 
-class Url(tuple):
-    """ A immutable URL class.
-        
-    """
+class Url:
     
-    __slots__ = ()
-    
-    def __new__(cls, host=None, path=None, scheme=None, query_string=None,
-                port=None, fragment=None, user=None, password=None, 
-                quote=False):
-        subdomains, domain, top_level_domain = split_host(host)
+    def __init__(self, host=None, path=None, scheme=None, query_string=None,
+                 port=None, fragment=None, user=None, password=None, 
+                 quote=False):
+        self.scheme = scheme
+        self.user = user
+        self.password = password
+        self.host = host
         if port is not None:
-            port = int(port)
+            self.port = port = int(port)
+        else:
+            self.port = None
         if path is not None:
-            path = path.lstrip('/ ').rstrip()
+            self.path = path = path.lstrip('/ ').rstrip()
+        else:
+            self.path = None
         if isinstance(query_string, collections.abc.Mapping):
-            query_string = QueryString(query_string.items())
+            self._query_string = query_string = QueryString(
+                query_string.items()
+            )
         elif isinstance(query_string, (str, bytes, )):
-            query_string = QueryString.from_string(query_string)
-        elif query_string is not None:
-            raise TypeError('Variable query_string must be either string-like '
-                            'or dict-like')
-        url_tuple = (
-            host, path, scheme, query_string, port, fragment, user, password,
-            quote, subdomains, domain, top_level_domain,
-        )
-        return tuple.__new__(cls, url_tuple)
-    
-    def _by_index(index):
-        def getter(self):
-            return tuple.__getitem__(self, index)
-        return getter
-    
-    host = property(_by_index(0))
-    path = property(_by_index(1))
-    scheme = property(_by_index(2))
+            self._query_string = query_string = QueryString.from_string(
+                query_string
+            )
+        elif query_string is None:
+            self._query_string = None
+        else:
+            raise TypeError('Variable query_string must be string-like, '
+                            'dict-like, or None')
+        self.fragment = fragment
+        self.quote = quote
 
     @property
     def query_string(self):
-        query_string = tuple.__getitem__(self, 3)
+        query_string = self._query_string
         if query_string is None:
             return None
         else:
             return query_string.copy()
-    
-    port = property(_by_index(4))
-    fragment = property(_by_index(5))
-    user = property(_by_index(6))
-    password = property(_by_index(7))
-    quote = property(_by_index(8))
-    subdomains = property(_by_index(9))
-    domain = property(_by_index(10))
-    top_level_domain = property(_by_index(11))
     
     @classmethod
     def from_string(cls, url_string):
@@ -408,7 +395,21 @@ class Url(tuple):
         return cls(**url_inputs)
     
     def __repr__(self):
-        return '{}{}'.format(self.__class__.__name__, self.__getnewargs__(), )
+        if self.__module__ == '__main__':
+            module = ''
+        else:
+            module = '{}.'.format(self.__module__)
+        keys = (
+            'host', 'path', 'scheme', 'query_string', 'port', 'fragment', 
+            'user', 'password', 'quote',
+        )
+        arguments = []
+        for key in keys:
+            value = getattr(self, key)
+            arguments.append('{}={}'.format(key, repr(value)))
+        arguments = ', '.join(arguments)
+        class_name = self.__class__.__name__
+        return '{}{}({})'.format(module, class_name, arguments)
     
     def __str__(self):
         return construct_url(

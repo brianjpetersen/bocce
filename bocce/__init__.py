@@ -3,7 +3,7 @@ import os
 # third party libraries
 pass
 # first party libraries
-from . import (application, routing, static, surly, requests, responses, )
+from . import (application, routing, static, surly, requests, responses, utils,)
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))

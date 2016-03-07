@@ -8,7 +8,7 @@ import bocce
 
 def application(environment, start_response):
     request = bocce.Request.from_environment(environment)
-    print(repr(request.cookies))
+    print(request.cookies)
     """
     if request.body.content:
         print(request.body, request.url, request.http)

@@ -3,10 +3,10 @@ pass
 # third party libraries
 pass
 # first party libraries
-pass
+from . import (cookies, )
 
 
-class Immutable:
+class Base:
     
     __slots__ = ('_items', '_dict', )
     
@@ -19,24 +19,7 @@ class Immutable:
             if key not in self._dict:
                 self._dict[key.lower()] = []
             self._dict[key.lower()].append((key, value))
-    
-    @classmethod
-    def from_environment(cls, environment):
-        items = []
-        if 'CONTENT_LENGTH' in environment:
-            items.append(('Content-Length', environment['CONTENT_LENGTH']))
-        if 'CONTENT_TYPE' in environment:
-            items.append(('Content-Type', environment['CONTENT_TYPE']))
-        for key, value in environment.items():
-            if key.startswith('HTTP_'):
-                if key == 'HTTP_CONTENT_LENGTH' and 'CONTENT_LENGTH' in environment:
-                    continue
-                if key == 'HTTP_CONTENT_TYPE' and 'CONTENT_TYPE' in environment:
-                    continue
-                key = key[5:].replace('_', '-').title()
-                items.append((key, value))
-        return cls(items)
-    
+            
     def __getitem__(self, key):
         _, value = self._dict[key.lower()]
         return value
@@ -87,7 +70,7 @@ class Immutable:
             return self._dict[key][-1]
         else:
             return default
-        
+    
     def get_all(self, key):
         return self.get(key, [])
     
@@ -105,13 +88,39 @@ class Immutable:
         return (self._items, )
 
 
-class Mutable(Immutable):
+class Request(Base):
+    
+    @classmethod
+    def from_environment(cls, environment):
+        items = []
+        if 'CONTENT_LENGTH' in environment:
+            items.append(('Content-Length', environment['CONTENT_LENGTH']))
+        if 'CONTENT_TYPE' in environment:
+            items.append(('Content-Type', environment['CONTENT_TYPE']))
+        for key, value in environment.items():
+            if key.startswith('HTTP_'):
+                if key == 'HTTP_CONTENT_LENGTH' and 'CONTENT_LENGTH' in environment:
+                    continue
+                if key == 'HTTP_CONTENT_TYPE' and 'CONTENT_TYPE' in environment:
+                    continue
+                key = key[5:].replace('_', '-').title()
+                items.append((key, value))
+        return cls(items)
+
+
+class Response(Base):
+    
+    __slots__ = ('_items', '_dict', 'cookies', )
+    
+    def __init__(self, items=None):
+        super(Request, self).__init__(items)
+        self.cookies = cookies.Cookies()
     
     def __setitem__(self, key, value):
         item = (key, value)
         self._dict[key.lower()].append(item)
         self._items.append(item)
-        
+    
     def __delitem__(self, key):
         del self._dict[key.lower()]
         self._items = [

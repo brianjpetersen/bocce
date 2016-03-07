@@ -194,7 +194,9 @@ class TestUrl:
     def test_repr(self):
         url = 'http://localhost/a'
         assert repr(surly.Url.from_string(url)) == \
-            "Url('localhost', 'a', 'http', None, None, None, None, None, False)"
+            "bocce.surly.Url(host='localhost', path='a', scheme='http', " \
+            "query_string=None, port=None, fragment=None, user=None, " \
+            "password=None, quote=False)"
                
     def test_url_replace(self):
         url = surly.Url(scheme='http', host='localhost', path='a/b')

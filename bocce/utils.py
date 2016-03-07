@@ -14,18 +14,74 @@ pass
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
-def cached_property(getter):
+def cached_getter(allow_get=True, allow_set=True, allow_delete=True):
     
-    @property
-    @functools.wraps(getter)
-    def decorator(*args, **kwargs):
-        try:
-            return getter._result
-        except AttributeError:
-            result = getter._result = getter(*args, **kwargs)
-            return result
+    class Wrapper:
+        
+        __slots__ = ('getter', 'name', 'value', )
     
-    return decorator
+        def __init__(self, getter):
+            self.getter = getter
+            self.name = getter.__name__
+    
+        def __get__(self, obj, type=None):
+            if self.allow_get == False:
+                raise AttributeError
+            try:
+                return self.value
+            except:
+                self.value = self.getter(obj)
+                return self.value
+    
+        def __set__(self, obj, value):
+            if self.allow_set == False:
+                raise AttributeError
+            self.value = value
+    
+        def __delete__(self, obj):
+            if self.allow_delete == False:
+                raise AttributeError
+            delattr(obj, self.name)
+    
+    Wrapper.allow_get = allow_get
+    Wrapper.allow_set = allow_set
+    Wrapper.allow_delete = allow_delete
+    
+    return Wrapper
+
+
+def cached_setter(allow_get=True, set_once=False, allow_delete=True):
+    
+    class Wrapper:
+        
+        __slots__ = ('name', 'setter', 'was_set', 'value', )
+        
+        def __init__(self, setter):
+            self.setter = setter
+            self.name = setter.__name__
+            self.was_set = False
+        
+        def __get__(self, obj, type=None):
+            if self.allow_get == False:
+                raise AttributeError
+            return self.value
+        
+        def __set__(self, obj, value):
+            if self.was_set and self.set_once:
+                raise AttributeError
+            self.value = self.setter(obj, value)
+        
+        def __delete__(self, obj):
+            if self.allow_delete == False:
+                raise AttributeError
+            delattr(obj, self.name)
+        
+            
+    Wrapper.allow_get = allow_get
+    Wrapper.allow_delete = allow_delete
+    Wrapper.set_once = set_once
+    
+    return Wrapper
 
 
 def once(f):
@@ -40,7 +96,7 @@ def once(f):
     
     return decorator
 
-    
+
 class LRUCache(collections.abc.MutableMapping):
 
     def __init__(self, size=None):
