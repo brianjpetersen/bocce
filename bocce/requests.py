@@ -96,8 +96,9 @@ class Request:
             request.environ.get('HTTP_CONNECTION', None),
         )
         self.headers = headers.Request.from_environment(request.environ)
+        self.cookies = self.headers.cookies
+        #self.cookies = cookies.Request.from_environment(**request.cookies)
         self.url = surly.Url.from_environment(request.environ)
-        self.cookies = cookies.Request.from_environment(**request.cookies)
         self.date = request.date
         self.content = Content(
             request.content_type,

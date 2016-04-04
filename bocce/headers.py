@@ -1,94 +1,25 @@
 # standard libraries
-pass
+import copy
 # third party libraries
 pass
 # first party libraries
 from . import (cookies, )
 
 
-class Base:
+class RequestHeaders:
     
-    __slots__ = ('_items', '_dict', )
-    
-    def __init__(self, items=None):
-        if items is None:
-            items = []
-        self._items = [(str(key), str(value)) for key, value in items]
-        self._dict = {}
-        for key, value in self._items:
-            if key not in self._dict:
-                self._dict[key.lower()] = []
-            self._dict[key.lower()].append((key, value))
-            
-    def __getitem__(self, key):
-        _, value = self._dict[key.lower()]
-        return value
-    
-    def __iter__(self):
-        return iter(self._items)
-    
-    def __contains__(self, key):
-        return key in self._dict
-    
-    def keys(self):
-        for key, _ in self.items():
-            yield key
-    
-    def values(self):
-        for _, value in self.items():
-            yield value
-    
-    def items(self):
-        return self._items
-    
-    def get(self, key, default=None):
-        if key in self:
-            return self[key]
-        else:
-            return default
-    
-    def __eq__(self, other):
-        return self._items == other._items
-    
-    def __ne__(self, other):
-        return self._items != other._items
-    
-    def __len__(self):
-        return len(self._items)
-    
-    def copy(self):
-        return copy.deepcopy(self)
-    
-    def get_first(self, key, default=None):
-        if key in self._dict.keys():
-            return self._dict[key][0]
-        else:
-            return default
-    
-    def get_last(self, key, default=None):
-        if key in self._dict.keys():
-            return self._dict[key][-1]
-        else:
-            return default
-    
-    def get_all(self, key):
-        return self.get(key, [])
-    
-    def __repr__(self):
-        return '{}.{}{}'.format(
-            self.__module__, self.__class__.__name__, tuple(self._items)
+    def __init__(self, *items):
+        self._headers = {}
+        for key, value in items:
+            key = str(key)
+            titlecase_key = key.title()
+            value = str(value)
+            if titlecase_key not in self._headers:
+                self._headers[titlecase_key] = []
+            self._headers[titlecase_key].append(value)
+        self.cookies = cookies.RequestCookies.from_header(
+            self.get('cookie', '')
         )
-    
-    def __str__(self):
-        return '\n'.join(
-            '{}: {}'.format(key, value) for key, value in self
-        )
-    
-    def __getnewargs__(self):
-        return (self._items, )
-
-
-class Request(Base):
     
     @classmethod
     def from_environment(cls, environment):
@@ -105,35 +36,162 @@ class Request(Base):
                     continue
                 key = key[5:].replace('_', '-').title()
                 items.append((key, value))
-        return cls(items)
+        return cls(*items)
+    
+    def __iter__(self):
+        for key in sorted(self.keys()):
+            values = self._headers[key]
+            for value in values:
+                yield (key, value)
+    
+    def keys(self):
+        return list(self._headers.keys())
+    
+    def items(self):
+        return list(self)
+        
+    def __getitem__(self, key):
+        titlecase_key = key.title()
+        values = self._headers[titlecase_key]
+        if len(values) == 1:
+            value, = values
+            return value
+        else:
+            return values
+    
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
+    
+    def get_first(self, key, default=None):
+        if key in self:
+            return self[key][0]
+        else:
+            return default
+    
+    def get_last(self, key, default=None):
+        if key in self:
+            return self[key][-1]
+        else:
+            return default
+    
+    def __contains__(self, key):
+        return key.title() in self._headers
+    
+    def __len__(self):
+        length = 0
+        for _ in self:
+            length += 1
+        return length
+    
+    def __repr__(self):
+        return '{}.{}{}'.format(
+            self.__module__, self.__class__.__name__, tuple(self)
+        )
+    
+    def __str__(self):
+        return '\n'.join(
+            '{}: {}'.format(key, value) for key, value in self
+        )
 
 
-class Response(Base):
-    
-    __slots__ = ('_items', '_dict', 'cookies', )
-    
-    def __init__(self, items=None):
-        super(Request, self).__init__(items)
-        self.cookies = cookies.Cookies()
+class ResponseHeaders:
+
+    def __init__(self, *items):
+        self._headers = {}
+        self.cookies = cookies.ResponseCookies()
+        for key, value in items:
+            self[key] = value
     
     def __setitem__(self, key, value):
-        item = (key, value)
-        self._dict[key.lower()].append(item)
-        self._items.append(item)
+        key = str(key)
+        titlecase_key = key.title()
+        value = str(value)
+        if titlecase_key == 'Set-Cookie':
+            self.cookies.set_from_header(value)
+        else:
+            if titlecase_key not in self._headers:
+                self._headers[titlecase_key] = []
+            self._headers[titlecase_key].append(value)
     
-    def __delitem__(self, key):
-        del self._dict[key.lower()]
-        self._items = [
-            (k, v) for k, v in self._items if k.lower() != key.lower()
-        ]
+    def __getitem__(self, key):
+        titlecase_key = str(key).title()
+        if titlecase_key == 'Set-Cookie':
+            return [str(cookie) for cookie in self.cookies.values()]
+        else:
+            values = self._headers[titlecase_key]
+            if len(values) == 1:
+                value, = values
+                return value
+            else:
+                return values
     
-    def pop(self, key, default=None):
-        if key not in self and default is None:
-            raise KeyError
-        value = self[key]
-        del self[key]
-        return value
+    def keys(self):
+        keys = list(self._headers.keys())
+        if len(self.cookies) > 0:
+            keys.append('Set-Cookie')
+        return keys
+        
+    def __iter__(self):
+        for key in sorted(self.keys()):
+            if key == 'Set-Cookie':
+                values = self.cookies.values()
+            else:
+                values = self._headers[key]
+            for value in values:
+                yield (key, value)
     
-    def update(self, other):
-        for key, value in other.items():
-            self[key] = value
+    def items(self):
+        return list(self)
+    
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
+    
+    def get_first(self, key, default=None):
+        if key in self:
+            return self[key][0]
+        else:
+            return default
+    
+    def get_last(self, key, default=None):
+        if key in self:
+            return self[key][-1]
+        else:
+            return default
+    
+    def delete(self, key, index=None):
+        titlecase_key = str(key).title()
+        if titlecase_key != 'Set-Cookie':
+            if index is None:
+                self._headers[titlecase_key] = []
+            elif isinstance(index, (int, slice)):
+                values = self._headers[titlecase_key]
+                del values[index]
+            else:
+                raise TypeError
+        else:
+            pass
+    
+    def __contains__(self, key):
+        return key.title() in self._headers
+    
+    def __len__(self):
+        length = 0
+        for _ in self:
+            length += 1
+        return length
+    
+    def __repr__(self):
+        return '{}.{}{}'.format(
+            self.__module__, self.__class__.__name__, tuple(self)
+        )
+    
+    def __str__(self):
+        return '\n'.join(
+            '{}: {}'.format(key, value) for key, value in self
+        )
