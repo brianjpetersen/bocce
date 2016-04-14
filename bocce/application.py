@@ -51,8 +51,7 @@ class Application:
                     after(request, response, configuration)
                 except:
                     continue
-            request.close()
-            return response.respond(environment, start_response)
+            return response.start(start_response)
     
     def configure(self):
         for route in self.routes:
@@ -77,7 +76,7 @@ class Application:
         cherrypy.tree.graft(self, '/')
         cherrypy.server.unsubscribe()
         
-        when = utils.timestamp()
+        when = utils.When.timestamp()
         pid = str(os.getpid())
         self.logger.info(
             'Started at {} in PID {} on the following interfaces:'.format(
@@ -113,5 +112,5 @@ class Application:
             cherrypy.engine.start()
             cherrypy.engine.block()
         finally:
-            when = utils.timestamp()
+            when = utils.When.timestamp()
             self.logger.info('Server stopped at {}.'.format(when))

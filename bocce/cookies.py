@@ -77,7 +77,10 @@ class ResponseCookie:
     
     def __str__(self):
         key = self.key
-        value = self.value or ''
+        if self.value is not None:
+            value = self.value
+        else:
+            value = ''
         cookie_segments = ['{}={}'.format(key, value), ]
         if self.max_age is not None:
             cookie_segments.append('Max-Age={}'.format(self.max_age))

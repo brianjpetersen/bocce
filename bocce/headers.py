@@ -110,7 +110,8 @@ class ResponseHeaders:
         titlecase_key = key.title()
         value = str(value)
         if titlecase_key == 'Set-Cookie':
-            self.cookies.set_from_header(value)
+            raise ValueError
+            #self.cookies.set_from_header(value)
         else:
             if titlecase_key not in self._headers:
                 self._headers[titlecase_key] = []
@@ -127,6 +128,24 @@ class ResponseHeaders:
                 return value
             else:
                 return values
+                
+    def __delitem__(self, key):
+        titlecase_key = str(key).title()
+        if titlecase_key == 'Set-Cookie':
+            self.cookies = cookies.ResponseCookies()
+        else:
+            del self._headers[titlecase_key]
+                
+    def replace(self, key, value):
+        key = str(key)
+        titlecase_key = key.title()
+        value = str(value)
+        if titlecase_key == 'Set-Cookie':
+            raise ValueError
+            #self.cookies = cookies.ResponseCookies()
+            #self.cookies.set_from_header(value)
+        else:
+            self._headers[titlecase_key] = [value, ]
     
     def keys(self):
         keys = list(self._headers.keys())
@@ -141,7 +160,7 @@ class ResponseHeaders:
             else:
                 values = self._headers[key]
             for value in values:
-                yield (key, value)
+                yield (key, str(value))
     
     def items(self):
         return list(self)
@@ -178,7 +197,8 @@ class ResponseHeaders:
             pass
     
     def __contains__(self, key):
-        return key.title() in self._headers
+        return key.title() in self._headers or \
+               (key.title() == 'Set-Cookie' and len(self.cookies) > 0)
     
     def __len__(self):
         length = 0

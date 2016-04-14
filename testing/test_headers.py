@@ -44,7 +44,7 @@ class TestRequestHeaders:
         with pytest.raises(KeyError):
             self.headers['Cookie']
         assert self.headers.get('Cookie') == None
-        
+    
     def test_len(self):
         assert len(self.headers) == 3
     
@@ -57,33 +57,32 @@ class TestRequestHeaders:
         assert str(self.headers) == ('Accept-Encoding: gzip\n'
             'Accept-Encoding: deflate\n'
             'Accept-Language: en-US,en;q=0.8')
-    
+
 
 class TestResponseCookies:
 
     cookies = ResponseCookies()
-    cookies['a'] = 1
+    cookies['a'] = 0
     cookies['c'] = ResponseCookie('c', 3)
     cookies.set('b', 2, path='/b')
 
-
     def test_get_set(self):
         assert self.cookies['a'].key == 'a'
-        assert self.cookies['a'].value == 1
+        assert self.cookies['a'].value == 0
         assert self.cookies['b'].value == 2
         assert self.cookies['b'].path == '/b'
         assert self.cookies['c'].value == 3
         
     def test_headers(self):
         assert self.cookies.headers == [
-            ('Set-Cookie', 'a=1'),
+            ('Set-Cookie', 'a=0'),
             ('Set-Cookie', 'c=3'),
             ('Set-Cookie', 'b=2; Path=/b'),
         ]
         
     def test_values(self):
         assert [str(value) for value in self.cookies.values()] == [
-            'a=1', 'c=3', 'b=2; Path=/b',
+            'a=0', 'c=3', 'b=2; Path=/b',
         ]
         
 
@@ -125,38 +124,25 @@ class TestResponseHeaders:
     
     def test_cookies(self):
         headers = ResponseHeaders()
-        assert 'set-cookie' in headers == False
-        headers.cookies['a'] = 1
-        assert 'set-cookie' in headers == True
+        assert list(headers) == []
+        assert ('set-cookie' in headers) == False
+        headers.cookies['a'] = 0
+        assert ('set-cookie' in headers) == True
+        assert list(headers) == [('Set-Cookie', 'a=0')]
+        headers['age'] = 60
+        assert headers['Age'] == '60'
+        assert list(headers) == [('Age', '60'), ('Set-Cookie', 'a=0'), ]
+        headers['cache'] = 'no-store'
+        headers['cache'] = 'no-cache'
+        headers.cookies.set('b', 1, path='/b')
+        assert list(headers) == [
+            ('Age', '60'),
+            ('Cache', 'no-store'),
+            ('Cache', 'no-cache'),
+            ('Set-Cookie', 'a=0'),
+            ('Set-Cookie', 'b=1; Path=/b'),
+        ]
 
 
 if __name__ == '__main__':
     pytest.main()
-
-
-"""
-assert 'set-cookie' in headers == False
-
-list(headers) == []
-
-headers['age'] = 3
-assert 'Age' in headers == True
-assert headers['Age'] == '3'
-
-headers['cache'] = 'no-store'
-headers['cache'] = 'no-cache'
-
-headers.cookies['a'] = 0
-headers.cookies.set('b', 1, path='/b')
-
-assert 'set-cookie' in headers == True
-assert headers['set-cookie'] == ['a=0', 'b=1; Path=/b', ]
-
-assert list(headers) == [
-    ('Age', '3'),
-    ('Cache', 'no-store'),
-    ('Cache', 'no-cache'),
-    ('Set-Cookie', 'a=0'),
-    ('Set-Cookie', 'b=1; Path=/b'),
-]
-"""

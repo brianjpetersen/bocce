@@ -321,6 +321,8 @@ class Url:
         self.user = user
         self.password = password
         self.host = host
+        self.subdomains, self.domain, self.top_level_domain = split_host(host)
+        self.subdomain = '.'.join(self.subdomains)
         if port is not None:
             self.port = port = int(port)
         else:
