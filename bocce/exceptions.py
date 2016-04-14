@@ -45,7 +45,8 @@ template = \
 
 class Response(responses.Response, Exception):
     
-    pass
+    def __init__(self):
+        super(Response, self).__init__()
 
 
 class NotFoundResponse(Response):
@@ -55,7 +56,9 @@ class NotFoundResponse(Response):
         message = 'The requested URL {} was not found on this server.'.format(
             request.url.path
         )
-        self.body.html = template.format(self.status, message, traceback=None)
+        self.body.html = template.format(
+            status=self.status, message=message, traceback=''
+        )
 
 
 class ServerErrorResponse(Response):
@@ -69,5 +72,8 @@ class ServerErrorResponse(Response):
         message = 'An unknown server error has occurred.'
         traceback = getattr(self, 'traceback', None)
         if self.debug and traceback is not None:
-            traceback = '<pre id="traceback">{traceback}</pre>'.format(traceback)
-        self.body.html = template.format(self.status, message, traceback)
+            traceback = '<pre id="traceback">{}</pre>'.format(traceback)
+        self.body.html = template.format(
+            status=self.status, message=message, traceback=traceback
+        )
+        

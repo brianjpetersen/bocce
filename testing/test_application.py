@@ -6,18 +6,32 @@ pass
 import bocce
 
 
-def application(environment, start_response):
-    request = bocce.Request.from_environment(environment)
-    response = bocce.Response()
-    response.headers['age'] = 305
-    response.cookies['a'] = 1
-    response.cookies['b'] = 2
-    response.body.json = {'a': 1, 'b': 5*'2'}
-    #response.body.file = 'scratch.py'
-    response.body.compress()
-    return response.start(start_response)
+class Response(bocce.Response):
+    
+    def __init__(self, c):
+        super(Response, self).__init__()
+        self.c = c
+    
+    def handle(self, request, configuration):
+        self.status_code = 200
+        self.body.text = self.c
+
+class Error(bocce.Response):
+    
+    def handle(self, request, configuration):
+        self.status_code = 200
+        raise Exception
+
+a = Response('a')
+b = Response('b')
+e = Error()
 
 
-if __name__ == '__main__':
-    from werkzeug.serving import run_simple
-    run_simple('0.0.0.0', 8080, application)
+app = bocce.Application()
+app.server_error_response.debug = True
+app.routes.add_response('/a', a, subdomains=('podimetrics-brianjpetersen', ))
+app.routes.add_response('/b', b, subdomains=('podimetrics-brianjpetersen', ))
+app.routes.add_response('/e', e, subdomains=('podimetrics-brianjpetersen', ))
+
+app.logger.enable()
+app.serve(interfaces=({'host': '0.0.0.0', 'port': 8080}, ))

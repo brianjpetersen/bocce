@@ -5,6 +5,7 @@ import copy
 import collections.abc
 import urllib.parse
 import operator
+import socket
 # third party libraries
 pass
 # first party libraries
@@ -12,6 +13,29 @@ from . import utils
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
+
+
+def is_valid_ipv4_address(address):
+    try:
+        socket.inet_pton(socket.AF_INET, address)
+    except AttributeError:  # no inet_pton here, sorry
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+        return address.count('.') == 3
+    except socket.error:  # not a valid address
+        return False
+
+    return True
+
+
+def is_valid_ipv6_address(address):
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+    except socket.error:  # not a valid address
+        return False
+    return True
 
 
 class _TopLevelDomains(collections.abc.MutableSet):
@@ -70,6 +94,8 @@ def split_host(host):
         at the module-level.
     
     """
+    if is_valid_ipv4_address(host) or is_valid_ipv6_address(host) or host == 'localhost':
+        return (None, None, None)
     match = top_level_domains.re.match(host)
     if match is None:
         return (None, None, None)
@@ -322,7 +348,10 @@ class Url:
         self.password = password
         self.host = host
         self.subdomains, self.domain, self.top_level_domain = split_host(host)
-        self.subdomain = '.'.join(self.subdomains)
+        if self.subdomains is not None:
+            self.subdomain = self.subdomains[0]
+        else:
+            self.subdomain = None
         if port is not None:
             self.port = port = int(port)
         else:

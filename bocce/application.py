@@ -5,7 +5,7 @@ import warnings
 # third party libraries
 import cherrypy
 # first party libraries
-from . import (routing, exceptions, requests, responses, )
+from . import (routing, exceptions, requests, responses, utils, logging, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +16,7 @@ class Application:
     Request = requests.Request
     
     def __init__(self):
+        self.logger = logging.logger
         self.routes = routing.Routes()
         self.configuration = {}
         self.not_found_response = exceptions.NotFoundResponse()
@@ -38,7 +39,8 @@ class Application:
             for before in response.before:
                 before(request, response, configuration)
             response.handle(request, configuration)
-        except exceptions.Response as response:
+        except exceptions.Response as exception:
+            response = exception
             response.traceback = traceback.format_exc()
             response.handle(request, configuration)
         except:
@@ -91,7 +93,7 @@ class Application:
             ssl_certificate = interface.get('ssl_certificate', None)
             ssl_private_key = interface.get('ssl_private_key', None)
             
-            self.logger.info('    {}:{}'.format(host, port))
+            logging.logger.info('    {}:{}'.format(host, port))
             server = cherrypy._cpserver.Server()
             server.socket_host = host
             server.socket_port = port
@@ -104,8 +106,8 @@ class Application:
             
             server.subscribe()
         
-        cherrypy.log.access_log.setLevel(logging.ERROR)
-        cherrypy.log.error_log.setLevel(logging.ERROR)
+        cherrypy.log.access_log.setLevel(logging.logging.ERROR)
+        cherrypy.log.error_log.setLevel(logging.logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
         
         try:
