@@ -338,7 +338,7 @@ class Response(responses.Response):
                     content_length=path.size,
                     mimetype=path.mimetype,
                 )
-            self.headers['ETag'] = path.etag
+            self.headers['Etag'] = path.etag
         elif path.is_directory:
             if self.expose_directory:
                 self.body.set_html(

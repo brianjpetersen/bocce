@@ -61,7 +61,7 @@ class Body:
     
     def __init__(self, headers):
         self.headers = headers
-        self.set_content(bytes())#, mimetype='text/plain', charset='utf-8')
+        self.set_content(bytes())
     
     def compress(self, level=2, threshold=128):
         if self._can_compress == False:
