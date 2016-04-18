@@ -4,7 +4,6 @@ import collections
 import hashlib
 import shutil
 import gzip
-#import sqlite3
 import mimetypes
 import concurrent.futures as futures
 # third party libraries
@@ -35,7 +34,7 @@ directory_template = '''
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
     <head>
-        <title>Directory Listing for {full_url_path}</title>
+        <title>Directory Listing for {path}</title>
         <link rel="stylesheet" href="https://goo.gl/VyJGqZ">
         <link href='https://fonts.googleapis.com/css?family=Varela+Round'
               rel='stylesheet' type='text/css'>
@@ -52,10 +51,10 @@ directory_template = '''
         </style>
     </head>
     <body>
-        <h1>Directory Listing for {full_url_path}</h1>
+        <h1>Directory Listing for {path}</h1>
         <hr>
         <ul class="fa-ul">
-            {directory_list}
+            {directories}
         </ul>
         <hr>
   </body>
@@ -109,21 +108,20 @@ def render_directory_list_item(path, is_file):
     return directory_list_item_template.format(path=path, icon=icon)
 
 
-def render_directory_template(url_path, os_path, full_url_path):
+def render_directory_template(path, url_path):
     items = []
-    for path in os.listdir(os_path):
-        if path.startswith('.'):
+    for p in os.listdir(path):
+        if p.startswith('.'):
             continue
-        is_file = os.path.isfile(os.path.join(os_path, path))
-        items.append((is_file, path))
+        is_file = os.path.isfile(os.path.join(path, p))
+        items.append((is_file, p))
     items.sort()
-    directory_list = []
-    for path, is_file in items:
-        directory_list.append(render_directory_list_item(path, is_file))
+    directories = []
+    for p, is_file in items:
+        directories.append(render_directory_list_item(p, is_file))
     return directory_template.format(
-        url_path=url_path,
-        directory_list='\n'.join(directory_list),
-        full_url_path=full_url_path,
+        directories='\n'.join(directories),
+        path=url_path,
     )
 
 
@@ -148,11 +146,6 @@ def rmdir(directory):
         shutil.rmtree(directory)
     except OSError:
         pass
-
-
-class CacheUndefined(Exception):
-    
-    pass
 
 
 class NotFoundResponse(exceptions.Response):
@@ -189,49 +182,45 @@ class ForbiddenResponse(exceptions.Response):
             status=self.status, message=message,
         )
 
-"""
-class CachedPath:
+
+class NotModifiedResponse(exceptions.Response):
     
-    def __init__(self, path, cache_filename='./.bocce/bocce.sqlite'):
-        self.path = path
-        self.connection = sqlite3.connect(cache_filename)
-        query = 'SELECT last_modified, size, etag FROM bocce \
-                 WHERE path = "{}"'.format(self.path)
-        values = self.connection.execute(query).fetchone()
-        if values is None:
-            raise CacheUndefined()
-        else:
-            self.last_modified, self.size, self.etag = values
-        
-    def update_from_path(self, path):
-        assert path.path == self.path
-        query = 'INSERT OR REPLACE INTO bocce VALUES(?, ?, ?, ?)'
-        values = (self.path, path.last_modified, path.size, path.etag, )
-        connection = self.connection
-        with connection:
-            cursor = connection.cursor()
-            cursor.execute(query, values)
-"""
+    def handle(self, request, configuration):
+        self.status_code = 304
+
 
 class Path:
     
     def __init__(self, path):
-        self.path = path
+        self.path = os.path.normpath(path)
         self.is_file = os.path.isfile(path)
         self.is_directory = not self.is_file
         if self.is_file:
             self.directory = os.path.dirname(path)
         else:
             self.directory = path
-        self.content_type, _ = mimetypes.guess_type(self.path)
+        self.mimetype, _ = mimetypes.guess_type(self.path)
         stats = os.stat(self.path)
-        self.size = stats.st_size
-        self.last_modified = stats.st_mtime
+        self.size = getattr(stats, 'st_size', None)
+        self.last_modified = getattr(stats, 'st_mtime', None)
         self.block_size = getattr(stats, 'st_blksize', 4096)
     
     @property
     def etag(self):
-        return hash(self)
+        h = hashlib.md5()
+        h.update(self.path.encode('utf-8'))
+        h.update(str(self.size).encode('utf-8'))
+        h.update(str(self.last_modified).encode('utf-8'))
+        return h.hexdigest()
+    
+    def join(self, *p):
+        return self.__class__(os.path.join(self.path, *p))
+    
+    def is_below(self, other):
+        return self.path.startswith(os.path.normpath(other.path))
+    
+    def is_above(self, other):
+        return os.path.normpath(other.path).startswith(self.path)
     
     def compress(self, destination, level=2):
         block_size = self.block_size
@@ -256,58 +245,25 @@ class Path:
                     path = os.path.join(base_directory, filename)
                     yield self.__class__(path)
     
-    def __iter__(self):
+    @property
+    def file_iterator(self):
         if self.is_directory:
             raise TypeError
         return responses.FileIterator(self.path, 'rb', self.block_size)
-    
-    def __hash__(self):
-        h = hashlib.md5()
-        h.update(self.path.encode('utf-8'))
-        h.update(str(self.size).encode('utf-8'))
-        h.update(str(self.last_modified).encode('utf-8'))
-        return h.hexdigest()
-    
-    def __eq__(self, other):
-        return self.etag == other.etag
 
 
 class Response(responses.Response):
     
-    def __init__(self, path, cache=True, clean=False, threads=None, 
-                 compression_threshold=128):
+    def __init__(self, path, cache=True, clean=False, threads=None,
+                 expose_directory=False):
         super(Response, self).__init__()
-        self.path = Path(path)
+        self.path = Path(os.path.abspath(path))
         self.cache_directory = os.path.join(self.path.directory, '.bocce')
-        self.cache_compression_threshold = compression_threshold
+        self.expose_directory = expose_directory
         if clean:
             self.clean_cache(self.cache_directory)
         if cache:
-            self.setup_cache(
-                self.path,
-                self.cache_directory,
-                threads,
-            )
-    
-    """
-    @staticmethod
-    def setup_sqlite(cache_directory):
-        cache_filename = os.path.join(cache_directory, 'bocce.sqlite')
-        connection = sqlite3.connect(cache_filename)
-        os.chmod(cache_filename, 0o777)
-        # create table if it doesn't exist
-        columns = ', '.join((
-            'path TEXT PRIMARY KEY',
-            'last_modified REAL',
-            'size REAL',
-            'etag TEXT',
-        ))
-        query = 'CREATE TABLE IF NOT EXISTS bocce({})'.format(columns)
-        with connection:
-            cursor = connection.cursor()
-            cursor.execute(query)
-        connection.close()
-    """
+            self.setup_cache(self.path, self.cache_directory, threads)
     
     @staticmethod
     def clean_cache(cache_directory):
@@ -316,22 +272,78 @@ class Response(responses.Response):
     @staticmethod
     def setup_cache(path, cache_directory, threads=None):
         mkdir(cache_directory)
-        #Response.setup_sqlite(cache_directory)
-        #compressed_directory = os.path.join(cache_directory, 'zip')
-        #mkdir(compressed_directory)
         with futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            for child_path in path.walk():
-                if child_path.is_directory:
+            for child in path.walk():
+                if child.is_directory:
                     continue
-                executor.submit(
-                    Response.cache_path,
-                    child_path,
-                    cache_directory,
-                )
-    
-    @staticmethod
-    def cache_path(path, cache_directory):
-        pass
+                compressed_filename = os.path.join(cache_directory, child.etag)
+                if os.path.exists(compressed_filename) == False:
+                    executor.submit(child.compress, compressed_filename)
     
     def handle(self, request, configuration):
-        pass
+        if request.http.method not in ('HEAD', 'GET'):
+            raise MethodNotAllowedResponse()
+        # we will handle the compression and compression headers manually
+        self.compress = False
+        # construct full path, joining with any included as part of url
+        if self.path.is_file:
+            path = self.path
+        else:
+            subpath = request.segments.get('path', None)
+            if subpath is None:
+                path = self.path
+            else:
+                # if path joining generates an exception, it doesn't exist
+                try:
+                    path = self.path.join(subpath)
+                except:
+                    raise NotFoundResponse()
+        # if the full path is a file, serve it; else, either serve directory html
+        # if directories are exposed, or throw a 403
+        if path.is_file:
+            # throw 403 if the path is above the mounting path in the filesystem 
+            if path.is_above(self.path):
+                raise ForbiddenResponse()
+            # check if client has cached this content
+            if path.etag in request.cache.if_none_match:
+                raise NotModifiedResponse()
+            # see if we have compressed content, and if not, create it
+            compressed_filename = os.path.join(self.cache_directory, path.etag)
+            try:
+                compressed_path = Path(compressed_filename)
+            except:
+                path.compress(compressed_filename)
+                compressed_path = Path(compressed_filename)
+            # check if we can return compressed content
+            if 'gzip' in request.accept.encodings:
+                # check if we should compress
+                if compressed_path.size < path.size:
+                    self.body.set_iterable(
+                        iter(compressed_path.file_iterator),
+                        content_length=compressed_path.size,
+                        mimetype=path.mimetype,
+                    )
+                    self.headers.replace('Content-Encoding', 'gzip')
+                # shouldn't compress
+                else:
+                    self.body.set_iterable(
+                        iter(path.file_iterator),
+                        content_length=path.size,
+                        mimetype=path.mimetype,
+                    )
+            # can't compress
+            else:
+                self.body.set_iterable(
+                    iter(path.file_iterator),
+                    content_length=path.size,
+                    mimetype=path.mimetype,
+                )
+            self.headers['ETag'] = path.etag
+        elif path.is_directory:
+            if self.expose_directory:
+                self.body.set_html(
+                    render_directory_template(path.path, request.url.path)
+                )
+                
+            else:
+                raise ForbiddenResponse()

@@ -1,9 +1,13 @@
 # standard libraries
-import json
+import os
+import datetime
 # third party libraries
 pass
 # first party libraries
 import bocce
+
+
+__where__ = os.path.dirname(os.path.abspath(__file__))
 
 
 class Response(bocce.Response):
@@ -16,6 +20,14 @@ class Response(bocce.Response):
         self.status_code = 200
         self.body.text = self.c
 
+
+class FileResponse(bocce.Response):
+    
+    def handle(self, request, configuration):
+        self.status_code = 200
+        self.body.file = '/home/ubuntu/workspace/bocce/testing/scratch.py'
+
+
 class Error(bocce.Response):
     
     def handle(self, request, configuration):
@@ -25,13 +37,20 @@ class Error(bocce.Response):
 a = Response('a')
 b = Response('b')
 e = Error()
-
+f = FileResponse()
+path = os.path.join(__where__, 'static')
+start = datetime.datetime.now()
+s = bocce.static.Response(path, expose_directory=True, clean=False)
+stop = datetime.datetime.now()
+print((stop - start).total_seconds())
 
 app = bocce.Application()
 app.server_error_response.debug = True
 app.routes.add_response('/a', a, subdomains=('podimetrics-brianjpetersen', ))
 app.routes.add_response('/b', b, subdomains=('podimetrics-brianjpetersen', ))
 app.routes.add_response('/e', e, subdomains=('podimetrics-brianjpetersen', ))
+app.routes.add_response('/s/<path>', s, subdomains=('podimetrics-brianjpetersen', ))
+app.routes.add_response('/f', f, subdomains=('podimetrics-brianjpetersen', ))
 app.configure()
 app.logger.enable()
 app.serve(interfaces=({'host': '0.0.0.0', 'port': 8080}, ))

@@ -61,12 +61,12 @@ class Body:
     
     def __init__(self, headers):
         self.headers = headers
-        self.set_text('', mimetype='text/plain', charset='utf-8')
+        self.set_content(bytes())#, mimetype='text/plain', charset='utf-8')
     
-    def compress(self, level=2, minimum_size=128):
+    def compress(self, level=2, threshold=128):
         if self._can_compress == False:
             raise ValueError
-        if self.content_length < minimum_size:
+        if self.content_length < threshold:
             return
         content = io.BytesIO()
         with gzip.GzipFile(fileobj=content, mode='wb', compresslevel=level) as f:
@@ -79,6 +79,8 @@ class Body:
         if mimetype is None:
             try:
                 del self.headers['Content-Type']
+            except:
+                pass
             finally:
                 self.content_type = None
                 self.mimetype = None
@@ -145,7 +147,7 @@ class Body:
         block_size = stats.st_blksize
         file_iterator = FileIterator(filename, file_mode, block_size)
         self.set_iterable(
-            file_iterator,
+            iter(file_iterator),
             content_length,
             mimetype,
             charset,
@@ -178,10 +180,10 @@ class Response:
         self.body = Body(self.headers)
         self.compress = False
     
-    def enable_compression(self, request, level=2, minimum_size=128):
+    def enable_compression(self, request, level=2, threshold=128):
         if 'gzip' in request.accept.encoding:
             self.compress = True
-            self.compression_minimum_size = 128
+            self.compression_threshold = threshold
             self.compression_level = level
     
     @property
@@ -202,7 +204,7 @@ class Response:
         if self.compress:
             self.body.compress(
                 self.compression_level,
-                self.compression_minimum_size
+                self.compression_threshold,
             )
         start_response(self.status, list(self.headers))
         return self.body
