@@ -32,6 +32,6 @@ app.server_error_response.debug = True
 app.routes.add_response('/a', a, subdomains=('podimetrics-brianjpetersen', ))
 app.routes.add_response('/b', b, subdomains=('podimetrics-brianjpetersen', ))
 app.routes.add_response('/e', e, subdomains=('podimetrics-brianjpetersen', ))
-
+app.configure()
 app.logger.enable()
 app.serve(interfaces=({'host': '0.0.0.0', 'port': 8080}, ))

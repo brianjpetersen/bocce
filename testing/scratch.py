@@ -1,3 +1,27 @@
+import os
+import sqlite3
+
+def setup_sqlite(cache_directory):
+    filename = os.path.join(cache_directory, 'metadata.sqlite')
+    connection = sqlite3.connect(filename)
+    os.chmod(filename, 0o777)
+    # create table if it doesn't exist
+    with connection:
+        cursor = connection.cursor()
+        columns = (
+            'os_path TEXT PRIMARY KEY',
+            'file_last_modified REAL',
+            'file_size REAL', 
+            'is_file BOOLEAN',
+            'is_compressed BOOLEAN', 
+            'file_hash TEXT',
+        )
+        query = 'CREATE TABLE IF NOT EXISTS bocce({columns})'
+        cursor.execute(query.format(columns=', '.join(columns)))
+    connection.close()
+
+setup_sqlite('.')
+"""
 import http.cookies
 
 
@@ -116,3 +140,4 @@ class ResponseHeaders(MutableOrderedMultiDict, RequestHeaders):
 
 headers = ResponseHeaders()
 headers['a'] = 1
+"""

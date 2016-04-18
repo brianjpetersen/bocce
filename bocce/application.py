@@ -57,7 +57,7 @@ class Application:
     
     def configure(self):
         for route in self.routes:
-            configure = getattr(route.request, 'configure', [])
+            configure = getattr(route.response, 'configure', [])
             for f in configure:
                 f(self.configuration)
         configure = getattr(self.not_found_response, 'configure', [])

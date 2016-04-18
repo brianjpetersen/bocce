@@ -75,8 +75,8 @@ class Route:
     def match(self, path, method=None, subdomain=None):
         if method not in self.methods:
             return None
-        if subdomain not in self.subdomains:
-            return None
+        #if subdomain not in self.subdomains:
+        #    return None
         match = self._regex.match(path.lstrip(' /').rstrip())
         if match is None:
             return None

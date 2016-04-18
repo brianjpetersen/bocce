@@ -25,7 +25,8 @@ class FileIterator(object):
     
     def __init__(self, filename, mode='rb', block_size=None):
         if block_size is None:
-            block_size = os.stat(filename).st_blksize
+            stats = os.stat(filename)
+            block_size = getattr(stats, 'st_blksize', 4096)
         self.file_ = open(filename, mode)
         self.block_size = block_size
     
