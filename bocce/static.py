@@ -114,7 +114,7 @@ def render_directory_template(path, url_path):
         if p.startswith('.'):
             continue
         is_file = os.path.isfile(os.path.join(path, p))
-        items.append((is_file, p))
+        items.append((p, is_file))
     items.sort()
     directories = []
     for p, is_file in items:
