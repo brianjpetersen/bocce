@@ -40,7 +40,7 @@ e = Error()
 f = FileResponse()
 path = os.path.join(__where__, 'static')
 start = datetime.datetime.now()
-s = bocce.static.Response(path, expose_directory=True, clean=False)
+s = bocce.static.Response(path, expose_directory=True, clean=True)
 stop = datetime.datetime.now()
 print((stop - start).total_seconds())
 
