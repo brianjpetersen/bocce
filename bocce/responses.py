@@ -166,19 +166,25 @@ class Body:
 
 class Response:
     
-    configure = []
-    before = []
-    after = [logging.log, ]
-    
-    def __init__(self):
-        self.configure = copy.deepcopy(self.configure)
-        self.before = copy.deepcopy(self.before)
-        self.after = copy.deepcopy(self.after)
+    def __init__(self, before=None, after=None, configure=None):
+        if before is None:
+            before = []
+        before.insert(0, self._setup_response_entities)
+        if after is None:
+            after = [logging.log, ]
+        if configure is None:
+            configure = []
+        self.configure = configure
+        self.before = before
+        self.after = after
+        
+    @staticmethod
+    def _setup_response_entities(request, response, configuration):
         # abstract over response
-        self.headers = headers.ResponseHeaders()
-        self.status_code = 200
-        self.body = Body(self.headers)
-        self.compress = False
+        response.headers = headers.ResponseHeaders()
+        response.status_code = 200
+        response.body = Body(response.headers)
+        response.compress = False
     
     def enable_compression(self, request, level=2, threshold=128):
         if 'gzip' in request.accept.encoding:

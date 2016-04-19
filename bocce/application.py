@@ -2,6 +2,7 @@
 import os
 import traceback
 import warnings
+import copy
 # third party libraries
 import cherrypy
 # first party libraries
@@ -42,10 +43,14 @@ class Application:
         except exceptions.Response as exception:
             response = exception
             response.traceback = traceback.format_exc()
+            for before in response.before:
+                before(request, response, configuration)
             response.handle(request, configuration)
         except:
             response = self.server_error_response
             response.traceback = traceback.format_exc()
+            for before in response.before:
+                before(request, response, configuration)
             response.handle(request, configuration)
         finally:
             for after in reversed(response.after):

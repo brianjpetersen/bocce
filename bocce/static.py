@@ -391,8 +391,6 @@ class Response(responses.Response):
             if path.is_above(self.path):
                 raise ForbiddenResponse()
             # set etag header and check if client has cached this content
-            self.headers['Etag'] = path.etag
-            print(path.etag, request.cache.if_none_match, path.etag in request.cache.if_none_match)
             if path.etag in request.cache.if_none_match:
                 raise NotModifiedResponse()
             # see if we have compressed content, and if not, create it
@@ -421,6 +419,7 @@ class Response(responses.Response):
                     content_length=path.size,
                     mimetype=path.mimetype,
                 )
+            self.headers.replace('Etag', path.etag)
         elif path.is_directory:
             if self.expose_directory:
                 self.body.set_html(

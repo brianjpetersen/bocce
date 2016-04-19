@@ -25,7 +25,7 @@ class FileResponse(bocce.Response):
     
     def handle(self, request, configuration):
         self.status_code = 200
-        self.body.file = '/home/ubuntu/workspace/bocce/testing/scratch.py'
+        self.body.file = os.path.join(__where__, 'scratch.py')
 
 
 class Error(bocce.Response):
@@ -46,11 +46,11 @@ print((stop - start).total_seconds())
 
 app = bocce.Application()
 app.server_error_response.debug = True
-app.routes.add_response('/a', a, subdomains=('podimetrics-brianjpetersen', ))
-app.routes.add_response('/b', b, subdomains=('podimetrics-brianjpetersen', ))
-app.routes.add_response('/e', e, subdomains=('podimetrics-brianjpetersen', ))
-app.routes.add_response('/s/<path>', s, subdomains=('podimetrics-brianjpetersen', ))
-app.routes.add_response('/f', f, subdomains=('podimetrics-brianjpetersen', ))
+app.routes.add_response('/a', a)
+app.routes.add_response('/b', b)
+app.routes.add_response('/e', e)
+app.routes.add_response('/s/<path>', s)
+app.routes.add_response('/f', f)
 app.configure()
 app.logger.enable()
 app.serve(interfaces=({'host': '0.0.0.0', 'port': 8080}, ))
