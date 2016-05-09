@@ -4,6 +4,7 @@ import abc
 import collections
 import copy
 import json
+import codecs
 # third party libraries
 import werkzeug
 # first party libraries
@@ -20,7 +21,13 @@ class Content:
         self.mimetype = mimetype
         self.length = length
         self.encoding = encoding
-        self.md5 = md5
+        if md5 is None:
+            self.md5 = None
+        else:
+            try:
+                self.md5 = codecs.decode(md5, 'base64')
+            except:
+                raise NotImplementedError()
         self.charset = charset
 
 
@@ -65,6 +72,17 @@ class Body:
     @utils.cached_getter(allow_set=False, allow_delete=False)
     def content(self):
         return self._stream.read()
+    
+    def iterate(self, block_size=4096):
+        while True:
+            block = self._stream.read(block_size)
+            if not block:
+                break
+            yield block
+    
+    @property
+    def iterable(self):
+        return self.iterate(block_size=4096)
     
     @utils.cached_getter(allow_set=False, allow_delete=False)
     def json(self):

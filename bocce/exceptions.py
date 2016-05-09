@@ -53,8 +53,8 @@ class NotFoundResponse(Response):
         
     def handle(self, request, configuration):
         self.status_code = 404
-        message = 'The requested URL /{} was not found on this server.'
-        message = message.format(request.url.path)
+        message = 'The requested URL /{} for method {} was not found on this server.'
+        message = message.format(request.url.path, request.http.method)
         self.body.html = template.format(
             status=self.status, message=message, traceback=''
         )

@@ -19,6 +19,7 @@ class Response(bocce.Response):
     def handle(self, request, configuration):
         self.status_code = 200
         self.body.text = self.c
+        self.compress(force=True)
 
 
 class FileResponse(bocce.Response):
@@ -36,6 +37,7 @@ class Error(bocce.Response):
 
 a = Response('a')
 b = Response('b')
+c = Response(1000*'c')
 e = Error()
 f = FileResponse()
 path = os.path.join(__where__, 'static')
@@ -48,6 +50,7 @@ app = bocce.Application()
 app.server_error_response.debug = True
 app.routes.add_response('/a', a)
 app.routes.add_response('/b', b)
+app.routes.add_response('/c', c)
 app.routes.add_response('/e', e)
 app.routes.add_response('/s/<path>', s)
 app.routes.add_response('/f', f)

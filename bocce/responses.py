@@ -3,10 +3,10 @@ import os
 import abc
 import collections
 import copy
-import json
 import io
 import gzip
 import mimetypes
+import datetime
 # third party libraries
 import werkzeug
 # first party libraries
@@ -41,20 +41,6 @@ class FileIterator(object):
                 yield block
         finally:
             file_.close()
-
-
-class JSONEncoder(json.JSONEncoder):
-    
-    def __init__(self, indent=None, **serializers):
-        super(JSONEncoder, self).__init__(indent=indent)
-        self.serializers = serializers
-    
-    def default(self, obj):
-        try:
-            serializer = self.serializers[obj.__class__.__name__]
-            return serializer(obj)
-        except:
-            return super(JSONEncoder, self).default(obj)
 
 
 class Body:
@@ -112,10 +98,10 @@ class Body:
     
     def set_json(self, d, charset='utf-8', indent=None, **serializers):
         if 'date' not in serializers:
-            serializers['date'] = lambda date: date.isoformat()
+            serializers[datetime.date] = lambda date: date.isoformat()
         if 'datetime' not in serializers:
-            serializers['datetime'] = lambda datetime: datetime.isoformat()
-        encoder = JSONEncoder(indent, **serializers)
+            serializers[datetime.datetime] = lambda datetime: datetime.isoformat()
+        encoder = utils.JSONEncoder(indent, **serializers)
         text = encoder.encode(d)
         mimetype = 'application/json'
         self.set_text(text, mimetype, charset)
@@ -166,31 +152,27 @@ class Body:
 
 class Response:
     
-    def __init__(self, before=None, after=None, configure=None):
-        if before is None:
-            before = []
-        before.insert(0, self._setup_response_entities)
-        if after is None:
-            after = [logging.log, ]
-        if configure is None:
-            configure = []
-        self.configure = configure
-        self.before = before
-        self.after = after
-        
-    @staticmethod
-    def _setup_response_entities(request, response, configuration):
-        # abstract over response
-        response.headers = headers.ResponseHeaders()
-        response.status_code = 200
-        response.body = Body(response.headers)
-        response.compress = False
+    configure = []
+    before = []
+    after = [logging.log, ]
     
-    def enable_compression(self, request, level=2, threshold=128):
-        if 'gzip' in request.accept.encoding:
-            self.compress = True
-            self.compression_threshold = threshold
-            self.compression_level = level
+    def __init__(self):
+        self.configure = copy.copy(self.configure)    
+        self.before = copy.copy(self.before)
+        self.after = copy.copy(self.after)
+        self.headers = headers.ResponseHeaders()
+        self.status_code = 200
+        self.body = Body(self.headers)
+    
+    def compress(self, level=2, threshold=128, force=False):
+        def compress(request, response, configuration):
+            if 'gzip' in request.accept.encodings:
+                try:
+                    response.body.compress(level, threshold)
+                except:
+                    if force:
+                        raise ValueError
+        self.after.append(compress)
     
     @property
     def cookies(self):
@@ -207,10 +189,5 @@ class Response:
         pass
     
     def start(self, start_response):
-        if self.compress:
-            self.body.compress(
-                self.compression_level,
-                self.compression_threshold,
-            )
         start_response(self.status, list(self.headers))
         return self.body

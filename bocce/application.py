@@ -22,7 +22,7 @@ class Application:
         self.configuration = {}
         self.not_found_response = exceptions.NotFoundResponse()
         self.server_error_response = exceptions.ServerErrorResponse(debug=False)
-    
+
     def __call__(self, environment, start_response):
         try:
             configuration = self.configuration
@@ -34,20 +34,21 @@ class Application:
             )
             if match is None:
                 request.route = request.segments = None
-                raise self.not_found_response
+                not_found_response = copy.deepcopy(self.not_found_response)
+                raise not_found_response
             request.route, request.segments = match
-            response = request.route.response
+            response = copy.deepcopy(request.route.response)
             for before in response.before:
                 before(request, response, configuration)
             response.handle(request, configuration)
         except exceptions.Response as exception:
-            response = exception
+            response = copy.deepcopy(exception)
             response.traceback = traceback.format_exc()
             for before in response.before:
                 before(request, response, configuration)
             response.handle(request, configuration)
         except:
-            response = self.server_error_response
+            response = copy.deepcopy(self.server_error_response)
             response.traceback = traceback.format_exc()
             for before in response.before:
                 before(request, response, configuration)
@@ -90,6 +91,9 @@ class Application:
                 when, pid
             )
         )
+        
+        with open('PID', 'wb') as f:
+            f.write(pid.encode('ascii'))
         
         for interface in interfaces:
             host = interface.get('host', '127.0.0.1')

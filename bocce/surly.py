@@ -348,6 +348,10 @@ class Url:
         self.password = password
         self.host = host
         self.subdomains, self.domain, self.top_level_domain = split_host(host)
+        if self.domain is not None:
+            self.cookie_domain = '.{}'.format(self.domain)
+        else:
+            self.cookie_domain = None
         if self.subdomains is not None:
             self.subdomain = self.subdomains[0]
         else:

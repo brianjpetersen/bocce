@@ -128,8 +128,7 @@ def render_directory_template(path, url_path):
 
 def mkdir(name):
     try:
-        os.mkdir(name)
-        os.chmod(name, 0o777)
+        os.makedirs(directory_name, 0o777)
     except:
         pass
 
@@ -369,8 +368,6 @@ class Response(responses.Response):
     def handle(self, request, configuration):
         if request.http.method not in ('HEAD', 'GET'):
             raise MethodNotAllowedResponse()
-        # we will handle the compression and compression headers manually
-        self.compress = False
         # construct full path, joining with any included as part of url
         if self.path.is_file:
             path = self.path

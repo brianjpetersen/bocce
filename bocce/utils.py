@@ -5,6 +5,7 @@ import collections
 import collections.abc
 import datetime
 import copy
+import json
 # third party libraries
 pass
 # first party libraries
@@ -162,4 +163,19 @@ class When:
     def from_timestamp(timestamp, format='YYYY-MM-DD'):
         pass
     
-    #datetime.datetime.utcnow().strftime("%a, %d-%b-%Y %T GMT")
+    # datetime.datetime.utcnow().strftime("%a, %d-%b-%Y %T GMT")
+    
+
+
+class JSONEncoder(json.JSONEncoder):
+    
+    def __init__(self, indent=None, **serializers):
+        super(JSONEncoder, self).__init__(indent=indent)
+        self.serializers = serializers
+    
+    def default(self, obj):
+        try:
+            serializer = self.serializers[obj.__class__]
+            return serializer(obj)
+        except:
+            return super(JSONEncoder, self).default(obj)
