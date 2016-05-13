@@ -10,7 +10,7 @@ import datetime
 # third party libraries
 import werkzeug
 # first party libraries
-from . import (logging, surly, utils, headers, )
+from . import (surly, utils, headers, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -152,27 +152,10 @@ class Body:
 
 class Response:
     
-    configure = []
-    before = []
-    after = [logging.log, ]
-    
     def __init__(self):
-        self.configure = copy.copy(self.configure)    
-        self.before = copy.copy(self.before)
-        self.after = copy.copy(self.after)
         self.headers = headers.ResponseHeaders()
         self.status_code = 200
         self.body = Body(self.headers)
-    
-    def compress(self, level=2, threshold=128, force=False):
-        def compress(request, response, configuration):
-            if 'gzip' in request.accept.encodings:
-                try:
-                    response.body.compress(level, threshold)
-                except:
-                    if force:
-                        raise ValueError
-        self.after.append(compress)
     
     @property
     def cookies(self):
@@ -184,9 +167,6 @@ class Response:
         return '{} {}'.format(
             status_code, werkzeug.http.HTTP_STATUS_CODES[status_code]
         )
-    
-    def handle(self, request, configuration):
-        pass
     
     def start(self, start_response):
         start_response(self.status, list(self.headers))

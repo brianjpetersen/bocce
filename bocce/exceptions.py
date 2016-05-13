@@ -1,5 +1,6 @@
 # standard libraries
 import os
+import abc
 # third party libraries
 pass
 # first party libraries
@@ -43,36 +44,38 @@ template = \
 '''
 
 
-class Response(responses.Response, Exception):
+class Handler(Exception, metaclass=abc.ABCMeta):
     
     def __init__(self):
-        super(Response, self).__init__()
+        super(Handler, self).__init__()
+    
+    @abc.abstractmethod
+    def __call__(self, request, response, configuration):
+        pass
 
 
-class NotFoundResponse(Response):
-        
-    def handle(self, request, configuration):
-        self.status_code = 404
+class NotFoundHandler(Handler):
+    
+    def __call__(self, request, response, configuration):
+        response.status_code = 404
         message = 'The requested URL /{} for method {} was not found on this server.'
         message = message.format(request.url.path, request.http.method)
-        self.body.html = template.format(
-            status=self.status, message=message, traceback=''
+        response.body.html = template.format(
+            status=response.status, message=message, traceback=''
         )
 
 
-class ServerErrorResponse(Response):
+class ServerErrorHandler(Handler):
     
     def __init__(self, debug=False):
-        super(ServerErrorResponse, self).__init__()
+        super(ServerErrorHandler, self).__init__()
         self.debug = debug
     
-    def handle(self, request, configuration):
-        self.status_code = 500
+    def __call__(self, request, response, configuration, traceback=None):
+        response.status_code = 500
         message = 'An unknown server error has occurred.'
-        traceback = getattr(self, 'traceback', None)
         if self.debug and traceback is not None:
             traceback = '<pre id="traceback">{}</pre>'.format(traceback)
-        self.body.html = template.format(
-            status=self.status, message=message, traceback=traceback
+        response.body.html = template.format(
+            status=response.status, message=message, traceback=traceback
         )
-        

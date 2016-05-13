@@ -21,11 +21,14 @@ class Route:
         '{(?P<curly_segment>[^/]+?)}|<(?P<pointy_segment>[^/]+?)>'
     )
     
-    def __init__(self, path, response, methods=('GET', None, ),
+    def __init__(self, path, handler, methods=('GET', None, ),
                  subdomains=('www', None, )):
         self._arg_path = path
         self._path = path.lstrip(' /').rstrip()
-        self.response = response
+        self.handler = copy.deepcopy(handler)
+        self.handler.configure = getattr(self.handler, 'configure', [])
+        self.handler.before = getattr(self.handler, 'before', [])
+        self.handler.after = getattr(self.handler, 'after', [])
         if isinstance(methods, str):
             raise TypeError(
                 'The variable methods must be an iterable of string-likes.'
@@ -97,14 +100,17 @@ class Route:
             raise ValueError # should never happen
     
     def __str__(self):
-        return '{} => {}'.format(self.path, self.response)
+        return '{} => {}'.format(
+            self.path,
+            '{}.{}'.format(self.handler.__module__, self.handler.__name__)
+        )
     
     def __repr__(self):
         return '{}{}'.format(
             self.__class__.__name__,
             (
                 self._arg_path,
-                self.response,
+                '{}.{}'.format(self.handler.__module__, self.handler.__name__),
                 tuple(self.methods),
                 tuple(self.subdomains),
             )
@@ -122,16 +128,29 @@ class Routes(collections.UserList):
             self.append(
                 Route(
                     posixpath.join(path, route.path),
-                    route.response,
+                    route.handler,
                     route.methods,
                     route.subdomains,
                 )
             )
     
-    def add_response(self, path, response, methods=('GET', None, ), 
-                     subdomains=('www', None, )):
-        route = Route(path, response, methods, subdomains)
+    def add_handler(self, path, handler, methods=('GET', None, ), 
+                    subdomains=('www', None, )):
+        route = Route(path, handler, methods, subdomains)
         self.append(route)
+        return route
+    
+    def add_to_configure(self, middleware, index=-1):
+        for route in self:
+            route.handler.configure.insert(index, middleware)
+    
+    def add_to_before(self, middleware, index=-1):
+        for route in self:
+            route.handler.before.insert(index, middleware)
+    
+    def add_to_after(self, middleware, index=0):
+        for route in self:
+            route.handler.after.insert(index, middleware)
     
     def match(self, path, method=None, subdomain=None):
         key = (path, method, subdomain)

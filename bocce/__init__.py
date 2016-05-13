@@ -4,7 +4,7 @@ import os
 pass
 # first party libraries
 from . import (application, routing, static, surly, requests, responses, 
-               utils, cookies, exceptions, )
+               utils, cookies, exceptions, middleware, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))

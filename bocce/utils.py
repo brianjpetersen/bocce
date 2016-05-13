@@ -4,7 +4,6 @@ import functools
 import collections
 import collections.abc
 import datetime
-import copy
 import json
 # third party libraries
 pass

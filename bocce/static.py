@@ -10,7 +10,7 @@ import concurrent.futures as futures
 # third party libraries
 pass
 # first party libraries
-from . import (exceptions, responses, )
+from . import (exceptions, responses, middleware, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -128,7 +128,7 @@ def render_directory_template(path, url_path):
 
 def mkdir(name):
     try:
-        os.makedirs(directory_name, 0o777)
+        os.makedirs(name, 0o777)
     except:
         pass
 
@@ -148,49 +148,52 @@ def rmdir(directory):
         pass
 
 
-class NotFoundResponse(exceptions.Response):
+class NotFoundHandler(exceptions.Handler):
     
-    def handle(self, request, configuration):
-        self.status_code = 404
+    after = [middleware.compress, ]
+    
+    def __call__(self, request, response, configuration):
+        response.status_code = 404
         message = 'The requested URL /{} was not found on this server.'
         message = message.format(request.url.path)
-        self.body.html = exception_template.format(
-            status=self.status, message=message,
+        response.body.html = exception_template.format(
+            status=response.status, message=message,
         )
-        self.enable_compression(request)
+        response.enable_compression(request)
 
 
-class MethodNotAllowedResponse(exceptions.Response):
+class MethodNotAllowedHandler(exceptions.Handler):
     
-    def handle(self, request, configuration):
-        self.status_code = 405
-        self.headers['Allow'] = 'GET'
+    after = [middleware.compress, ]
+    
+    def __call__(self, request, response, configuration):
+        response.status_code = 405
+        response.headers['Allow'] = 'GET'
         message = 'The method {} is not permitted on the requested URL /{} ' \
            'on this server.'
         message = message.format(request.http.method, request.url.path)
-        self.body.html = exception_template.format(
-            status=self.status, message=message,
+        response.body.html = exception_template.format(
+            status=response.status, message=message,
         )
-        self.enable_compression(request)
 
 
-class ForbiddenResponse(exceptions.Response):
+class ForbiddenHandler(exceptions.Handler):
     
-    def handle(self, request, configuration):
+    after = [middleware.compress, ]
+    
+    def __call__(self, request, response, configuration):
         self.status_code = 403
         message = 'Access to the requested URL {} is forbidden on this server.'
         message = message.format(request.url.path)
-        self.body.html = exception_template.format(
-            status=self.status, message=message,
+        response.body.html = exception_template.format(
+            status=response.status, message=message,
         )
-        self.enable_compression(request)
 
 
-class NotModifiedResponse(exceptions.Response):
+class NotModifiedHandler(exceptions.Handler):
     
-    def handle(self, request, configuration):
-        self.status_code = 304
-
+    def __call__(self, request, response, configuration):
+        response.status_code = 304
 
 
 class Path:
@@ -353,11 +356,11 @@ class CachedPath(Path):
         return Path(compressed_path)
 
 
-class Response(responses.Response):
+class Handler:
     
     def __init__(self, path, clean=False, threads=None, expose_directory=False, 
                  cache_directory=None):
-        super(Response, self).__init__()
+        super(Handler, self).__init__()
         self.path = CachedPath(path, cache_directory)
         self.expose_directory = expose_directory
         if clean:
@@ -365,9 +368,9 @@ class Response(responses.Response):
         if self.path.is_directory:
             self.path.cache_below(threads)
     
-    def handle(self, request, configuration):
+    def __call__(self, request, response, configuration):
         if request.http.method not in ('HEAD', 'GET'):
-            raise MethodNotAllowedResponse()
+            raise MethodNotAllowedHandler()
         # construct full path, joining with any included as part of url
         if self.path.is_file:
             path = self.path
@@ -380,50 +383,51 @@ class Response(responses.Response):
                 try:
                     path = self.path.join(subpath)
                 except OSError:
-                    raise NotFoundResponse()
+                    raise NotFoundHandler()
         # if the full path is a file, serve it; else, either serve directory html
         # if directories are exposed, or throw a 403
         if path.is_file:
             # throw 403 if the path is above the mounting path in the filesystem 
             if path.is_above(self.path):
-                raise ForbiddenResponse()
+                raise ForbiddenHandler()
             # set etag header and check if client has cached this content
             if path.etag in request.cache.if_none_match:
-                raise NotModifiedResponse()
+                raise NotModifiedHandler()
             # see if we have compressed content, and if not, create it
             compressed_path = path.compressed_path
             # check if we can return compressed content
             if 'gzip' in request.accept.encodings:
                 # check if we should compress
-                if compressed_path.size < path.size and path.mimetype in mimetypes_to_compress:
-                    self.body.set_iterable(
+                large_enough = compressed_path.size < path.size
+                correct_mimetype = path.mimetype in mimetypes_to_compress
+                if large_enough and correct_mimetype:
+                    response.body.set_iterable(
                         iter(compressed_path.file_iterator),
                         content_length=compressed_path.size,
                         mimetype=path.mimetype,
                     )
-                    self.headers.replace('Content-Encoding', 'gzip')
+                    response.headers.replace('Content-Encoding', 'gzip')
                 # shouldn't return compressed file
                 else:
-                    self.body.set_iterable(
+                    response.body.set_iterable(
                         iter(path.file_iterator),
                         content_length=path.size,
                         mimetype=path.mimetype,
                     )
             # can't return compressed file
             else:
-                self.body.set_iterable(
+                response.body.set_iterable(
                     iter(path.file_iterator),
                     content_length=path.size,
                     mimetype=path.mimetype,
                 )
-            self.headers.replace('Etag', path.etag)
+            response.headers.replace('Etag', path.etag)
         elif path.is_directory:
             if self.expose_directory:
-                self.body.set_html(
+                response.body.set_html(
                     render_directory_template(path.path, request.url.path)
                 )
             else:
-                raise ForbiddenResponse()
+                raise ForbiddenHandler()
         else:
-            raise NotFoundResponse()
-        
+            raise NotFoundHandler()

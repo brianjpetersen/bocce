@@ -2,11 +2,11 @@
 import os
 import traceback
 import warnings
-import copy
+import logging
 # third party libraries
 import cherrypy
 # first party libraries
-from . import (routing, exceptions, requests, responses, utils, logging, )
+from . import (routing, exceptions, requests, responses, utils, )
 
 
 __where__ = os.path.dirname(os.path.abspath(__file__))
@@ -15,14 +15,19 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 class Application:
     
     Request = requests.Request
+    Response = responses.Response
     
     def __init__(self):
-        self.logger = logging.logger
         self.routes = routing.Routes()
         self.configuration = {}
-        self.not_found_response = exceptions.NotFoundResponse()
-        self.server_error_response = exceptions.ServerErrorResponse(debug=False)
-
+        # exceptions
+        self.not_found_handler = exceptions.NotFoundHandler()
+        self.server_error_handler = exceptions.ServerErrorHandler(debug=False)
+        # logging
+        self.logger = logging.getLogger('bocce')
+        self.logger.addHandler(logging.NullHandler())
+        self.logger.setLevel(logging.INFO)
+    
     def __call__(self, environment, start_response):
         try:
             configuration = self.configuration
@@ -34,44 +39,72 @@ class Application:
             )
             if match is None:
                 request.route = request.segments = None
-                not_found_response = copy.deepcopy(self.not_found_response)
-                raise not_found_response
+                raise self.not_found_handler
             request.route, request.segments = match
-            response = copy.deepcopy(request.route.response)
-            for before in response.before:
+            handler = request.route.handler
+            response = self.Response()
+            for before in getattr(handler, 'before', []):
                 before(request, response, configuration)
-            response.handle(request, configuration)
-        except exceptions.Response as exception:
-            response = copy.deepcopy(exception)
+            handler(request, response, configuration)
+        except exceptions.Handler as exception:
+            handler = exception
+            response = self.Response()
             response.traceback = traceback.format_exc()
-            for before in response.before:
+            for before in getattr(handler, 'before', []):
                 before(request, response, configuration)
-            response.handle(request, configuration)
+            handler(request, response, configuration)
         except:
-            response = copy.deepcopy(self.server_error_response)
-            response.traceback = traceback.format_exc()
-            for before in response.before:
+            handler = self.server_error_handler
+            response = self.Response()
+            for before in getattr(handler, 'before', []):
                 before(request, response, configuration)
-            response.handle(request, configuration)
+            handler(request, response, configuration, traceback.format_exc())
         finally:
-            for after in reversed(response.after):
+            for after in reversed(getattr(handler, 'after', [])):
                 try:
                     after(request, response, configuration)
                 except:
                     continue
+            self.log(request, response, configuration)
             return response.start(start_response)
     
     def configure(self):
         for route in self.routes:
-            configure = getattr(route.response, 'configure', [])
-            for f in configure:
-                f(self.configuration)
-        configure = getattr(self.not_found_response, 'configure', [])
-        for f in configure:
-            f(self.configuration)
-        configure = getattr(self.server_error_response, 'configure', [])
-        for f in configure:
-            f(self.configuration)
+            for configure in getattr(route.handler, 'configure', []):
+                configure(self.configuration)
+        for configure in getattr(self.not_found_handler, 'configure', []):
+            configure(self.configuration)
+        for configure in getattr(self.server_error_handler, 'configure', []):
+            configure(self.configuration)
+    
+    def log(self, request, response, configuration):
+        # collect details from request, response, and exception traceback (if any)
+        http_details = '{} {} {} {}'.format(
+            utils.When.timestamp(),
+            response.status_code,
+            request.http.method.ljust(7),
+            '/{}'.format(request.url.path),
+        )
+        # no error
+        if response.status_code < 400:
+            self.logger.info(http_details)
+        # client error
+        elif response.status_code < 500:
+            self.logger.warning(http_details)
+        # server error
+        else:
+            traceback = getattr(response, 'traceback', '')
+            formatted_traceback = '    ' + ('\n    ').join(traceback.split('\n'))
+            formatted_traceback = '\n'.join(
+                [line for line in formatted_traceback.splitlines() if line.strip()]
+            )
+            specifier = '{}\n\n{}\n'
+            exception_details = specifier.format(http_details, formatted_traceback)
+            self.logger.error(exception_details)
+    
+    def enable_logging(self, handler=logging.StreamHandler(), level=logging.INFO):
+        self.logger.addHandler(handler)
+        handler.setLevel(level)
     
     def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
         
@@ -102,7 +135,7 @@ class Application:
             ssl_certificate = interface.get('ssl_certificate', None)
             ssl_private_key = interface.get('ssl_private_key', None)
             
-            logging.logger.info('    {}:{}'.format(host, port))
+            self.logger.info('    {}:{}'.format(host, port))
             server = cherrypy._cpserver.Server()
             server.socket_host = host
             server.socket_port = port
@@ -115,8 +148,8 @@ class Application:
             
             server.subscribe()
         
-        cherrypy.log.access_log.setLevel(logging.logging.ERROR)
-        cherrypy.log.error_log.setLevel(logging.logging.ERROR)
+        cherrypy.log.access_log.setLevel(logging.ERROR)
+        cherrypy.log.error_log.setLevel(logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
         
         try:

@@ -39,8 +39,8 @@ import bocce.routing as routing
     ]
 )
 def test_route_match(route_path, match_path, segments):
-    response = lambda request, configuration: None
-    route = routing.Route(route_path, response)
+    handler = lambda request, configuration: None
+    route = routing.Route(route_path, handler)
     assert route.match(match_path) == segments
 
 
@@ -62,37 +62,37 @@ def test_route_match(route_path, match_path, segments):
     ]
 )
 def test_route_mismatch(route_path, match_path):
-    response = lambda request, configuration: None
-    route = routing.Route(route_path, response)
+    handler = lambda request, configuration: None
+    route = routing.Route(route_path, handler)
     assert route.match(match_path) is None
 
 """
 def test_route_match_with_methods_and_subdomains():
-    response = lambda request, configuration: None
-    route = routing.Route('{a}/b', response)
+    handler = lambda request, configuration: None
+    route = routing.Route('{a}/b', handler)
     assert route.match('a/b') == {'a': 'a'}
     assert route.match('a/b', method='POST') == None
     assert route.match('a/b', subdomain='api') == None
     route = routing.Route(
-        '{a}/b', response, methods=('POST', ), subdomains=('api', 'www', )
+        '{a}/b', handler, methods=('POST', ), subdomains=('api', 'www', )
     )
     assert route.match('a/b', method='POST', subdomain='api') == {'a': 'a'}
 """
 
 def test_route_match_with_methods():
-    response = lambda request, configuration: None
-    route = routing.Route('{a}/b', response)
+    handler = lambda request, configuration: None
+    route = routing.Route('{a}/b', handler)
     assert route.match('a/b') == {'a': 'a'}
-    route = routing.Route('{a}/b', response, methods=('GET', 'POST', ))
+    route = routing.Route('{a}/b', handler, methods=('GET', 'POST', ))
     assert route.match('a/b') == None
     assert route.match('a/b', method='POST') == {'a': 'a'}
 
 """
 def test_route_match_with_subdomains():
-    response = lambda request, configuration: None
-    route = routing.Route('{a}/b', response)
+    handler = lambda request, configuration: None
+    route = routing.Route('{a}/b', handler)
     assert route.match('a/b') == {'a': 'a'}
-    route = routing.Route('{a}/b', response, subdomains=('www', 'api', ))
+    route = routing.Route('{a}/b', handler, subdomains=('www', 'api', ))
     assert route.match('a/b') == None
     assert route.match('a/b', subdomain='api') == {'a': 'a'}
 """
@@ -100,27 +100,27 @@ def test_route_match_with_subdomains():
 def test_routes_container():
     routes = routing.Routes()
     assert len(routes) == 0
-    response = lambda request, configuration: None
-    routes.add_response('/', response)
-    routes.add_response('/a', response)
+    handler = lambda request, configuration: None
+    routes.add_handler('/', handler)
+    routes.add_handler('/a', handler)
     assert len(routes) == 2
     routes.pop()
     assert len(routes) == 1
-    route = routing.Route('/a', response)
+    route = routing.Route('/a', handler)
     routes.extend((route, route, ))
     assert len(routes) == 3
     assert routes[-1] == route
 
 
 routes = routing.Routes()
-response = lambda request, response: None
-routes.add_response('', response)
-routes.add_response('a', response, methods=('GET', 'POST', ))
-routes.add_response('{a}/b', response, methods=('GET', 'POST', ))
-routes.add_response('{a}/c', response)
-routes.add_response('{a}/<b>', response)
-routes.add_response('{a}/b/<c>', response)
-routes.add_response('{a}/a/{c}/<d>', response)
+handler = lambda request, handler: None
+routes.add_handler('', handler)
+routes.add_handler('a', handler, methods=('GET', 'POST', ))
+routes.add_handler('{a}/b', handler, methods=('GET', 'POST', ))
+routes.add_handler('{a}/c', handler)
+routes.add_handler('{a}/<b>', handler)
+routes.add_handler('{a}/b/<c>', handler)
+routes.add_handler('{a}/a/{c}/<d>', handler)
 
 @pytest.mark.parametrize(
     'path, method, route, segments',
