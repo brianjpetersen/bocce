@@ -159,17 +159,32 @@ class When:
         return when.strftime(format)
     
     @staticmethod
+    def iso_timestamp(when=None):
+        return When.timestamp(when, format='%Y-%m-%dT%H:%M:%SZ')
+    
+    @staticmethod
+    def unix_timestamp(when=None):
+        if when is None:
+            when = datetime.datetime.utcnow()
+        return when.timestamp()
+    
+    @staticmethod
+    def http_timestamp(when=None):
+        return When.timestamp(when, format='%a, %d-%b-%Y %T GMT')
+    
+    """
+    @staticmethod
     def from_timestamp(timestamp, format='YYYY-MM-DD'):
         pass
-    
-    # datetime.datetime.utcnow().strftime("%a, %d-%b-%Y %T GMT")
-    
+    """
 
 
-class JSONEncoder(json.JSONEncoder):
+class JsonEncoder(json.JSONEncoder):
     
-    def __init__(self, indent=None, **serializers):
-        super(JSONEncoder, self).__init__(indent=indent)
+    def __init__(self, indent=None, serializers=None):
+        super(JsonEncoder, self).__init__(indent=indent)
+        if serializers is None:
+            serializers = {}
         self.serializers = serializers
     
     def default(self, obj):
@@ -177,4 +192,4 @@ class JSONEncoder(json.JSONEncoder):
             serializer = self.serializers[obj.__class__]
             return serializer(obj)
         except:
-            return super(JSONEncoder, self).default(obj)
+            return super(JsonEncoder, self).default(obj)

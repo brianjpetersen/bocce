@@ -56,6 +56,7 @@ class Application:
         except:
             handler = self.server_error_handler
             response = self.Response()
+            response.traceback = traceback.format_exc()
             for before in getattr(handler, 'before', []):
                 before(request, response, configuration)
             handler(request, response, configuration, traceback.format_exc())

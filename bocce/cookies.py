@@ -1,7 +1,3 @@
-""" Technically, there can be multiple cookies with the same name;
-    however, this is insane and is not supported here.
-
-"""
 # standard libraries
 import os
 import collections.abc
@@ -132,10 +128,6 @@ class ResponseCookies(collections.abc.MutableMapping):
             self._cookies[key] = value
         else:
             self.set(key, value)
-    
-    @property
-    def headers(self):
-        return [('Set-Cookie', str(cookie)) for cookie in self.values()]
     
     def __str__(self):
         return '\n'.join(

@@ -1,10 +1,28 @@
 # standard libraries
-pass
+import datetime
 # third party libraries
 import pytest
 # first party libraries
+import bocce
+
+
+response = bocce.Response()
+
+#response.body.json['a'] = 1
+#response.body.json['b'] = datetime.datetime.now()
+
+response.body.html = '<html></html>'
+
+response.cookies.set('a', 1, http_only=True)
+
+print(list(response.headers))
+print(list(response.body))
+
+
+"""
 from bocce.headers import (RequestHeaders, ResponseHeaders, )
 from bocce.cookies import (ResponseCookies, ResponseCookie, )
+
 
 class TestRequestHeaders:
     
@@ -146,3 +164,4 @@ class TestResponseHeaders:
 
 if __name__ == '__main__':
     pytest.main()
+"""

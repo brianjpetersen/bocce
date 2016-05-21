@@ -111,11 +111,10 @@ def render_directory_list_item(path, is_file):
 
 def render_directory_template(path, url_path):
     items = []
-    for p in os.listdir(path):
-        if p.startswith('.'):
+    for p in os.scandir(path):
+        if p.name.startswith('.'):
             continue
-        is_file = os.path.isfile(os.path.join(path, p))
-        items.append((p, is_file))
+        items.append((p.name, p.is_file()))
     items.sort()
     directories = []
     for p, is_file in items:
@@ -404,22 +403,22 @@ class Handler:
                     response.body.set_iterable(
                         iter(compressed_path.file_iterator),
                         content_length=compressed_path.size,
-                        mimetype=path.mimetype,
+                        content_type=path.mimetype,
+                        content_encoding='gzip',
                     )
-                    response.headers.replace('Content-Encoding', 'gzip')
                 # shouldn't return compressed file
                 else:
                     response.body.set_iterable(
                         iter(path.file_iterator),
                         content_length=path.size,
-                        mimetype=path.mimetype,
+                        content_type=path.mimetype,
                     )
             # can't return compressed file
             else:
                 response.body.set_iterable(
                     iter(path.file_iterator),
                     content_length=path.size,
-                    mimetype=path.mimetype,
+                    content_type=path.mimetype,
                 )
             response.headers.replace('Etag', path.etag)
         elif path.is_directory:

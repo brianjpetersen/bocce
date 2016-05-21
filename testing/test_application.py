@@ -23,6 +23,16 @@ class Handler:
         response.body.text = self.c
 
 
+class JsonHandler:
+    
+    after = [bocce.middleware.compress, ]
+    
+    def __call__(self, request, response, configuration):
+        response.status_code = 200
+        response.body.json.indent = 4
+        response.body.json['a'] = 1000*'a'
+
+
 class FileHandler:
     
     def __call__(self, request, response, configuration):
@@ -42,6 +52,7 @@ b = Handler('b')
 c = Handler(1000*'c')
 e = Error()
 f = FileHandler()
+j = JsonHandler()
 path = os.path.join(__where__, 'static')
 start = datetime.datetime.now()
 s = bocce.static.Handler(path, expose_directory=True, clean=True)
@@ -56,6 +67,7 @@ app.routes.add_handler('/c', c)
 app.routes.add_handler('/e', e)
 app.routes.add_handler('/s/<path>', s)
 app.routes.add_handler('/f', f)
+app.routes.add_handler('/j', j)
 
 app.configure()
 app.enable_logging()

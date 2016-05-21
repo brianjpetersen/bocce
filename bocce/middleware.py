@@ -10,7 +10,7 @@ __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
 def compress(request, response, configuration):
-    defaults = {'level': 2, 'threshold': 128, 'force': False}
+    defaults = {'level': 2, 'threshold': 128, }
     configuration = configuration.get('bocce', {}).get('compression', defaults)
     if 'gzip' in request.accept.encodings:
         try:
@@ -19,5 +19,4 @@ def compress(request, response, configuration):
                 configuration['threshold']
             )
         except:
-            if configuration['force']:
-                raise ValueError
+            pass
