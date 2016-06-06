@@ -119,15 +119,22 @@ class Route:
 
 class Routes(collections.UserList):
     
-    def __init__(self, cache_size=1e6):
+    def __init__(self, cache_size=1e5):
         super(Routes, self).__init__()
         self.cache = utils.LRUCache(cache_size)
     
     def add_routes(self, path, routes):
+        base = path
         for route in routes:
+            base_is_file = (base.endswith('/') == False and base not in ('', '/'))
+            route_is_file = route.path in ('', '/')
+            if base_is_file and route_is_file:
+                path = base
+            else:
+                path = posixpath.join(base, route.path)
             self.append(
                 Route(
-                    posixpath.join(path, route.path),
+                    path,
                     route.handler,
                     route.methods,
                     route.subdomains,

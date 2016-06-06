@@ -62,7 +62,14 @@ class Http:
 
 class Body:
     
-    __slots__ = ('_request', '_stream', 'encoding', )
+    __slots__ = (
+        '_request',
+        '_stream',
+        'encoding',
+        '_cached_content',
+        '_cached_json',
+        '_cached_text',
+    )
     
     def __init__(self, _request, encoding='utf-8'):
         self._request = _request
@@ -92,6 +99,7 @@ class Body:
     def text(self):
         return self.content.decode(self.encoding)
     
+    """
     @utils.cached_getter(allow_set=False, allow_delete=False)
     def form(self):
         raise NotImplementedError
@@ -102,6 +110,7 @@ class Body:
     
     def to_file(self, filename=None):
         raise NotImplementedError
+    """
 
 
 class Request:

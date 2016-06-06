@@ -12,10 +12,6 @@ __all__ = ('Application', 'application', 'routing', 'Route', 'Routes',
            'Request', 'Response', 'exceptions', 'surly', 'Url')
 
 
-with open(os.path.join(__where__, '..', 'VERSION'), 'rb') as f:
-    __version__ = f.read()
-
-
 Route = routing.Route
 Routes = routing.Routes
 Application = application.Application

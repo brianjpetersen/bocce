@@ -352,7 +352,7 @@ class Url:
             self.cookie_domain = '.{}'.format(self.domain)
         else:
             self.cookie_domain = None
-        if self.subdomains is not None:
+        if self.subdomains is not None and len(self.subdomains) > 0:
             self.subdomain = self.subdomains[0]
         else:
             self.subdomain = None

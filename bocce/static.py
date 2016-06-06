@@ -119,6 +119,7 @@ def render_directory_template(path, url_path):
     directories = []
     for p, is_file in items:
         directories.append(render_directory_list_item(p, is_file))
+    if url_path.startswith('/') == False: url_path = '/' + url_path
     return directory_template.format(
         directories='\n'.join(directories),
         path=url_path,
@@ -181,7 +182,7 @@ class ForbiddenHandler(exceptions.Handler):
     after = [middleware.compress, ]
     
     def __call__(self, request, response, configuration):
-        self.status_code = 403
+        response.status_code = 403
         message = 'Access to the requested URL {} is forbidden on this server.'
         message = message.format(request.url.path)
         response.body.html = exception_template.format(
@@ -219,6 +220,12 @@ class Path:
     
     def is_above(self, other):
         return os.path.normpath(other.path).startswith(self.path)
+    
+    def __eq__(self, other):
+        return os.path.normpath(self.path) == os.path.normpath(other.path)
+    
+    def __ne__(self, other):
+        return not self == other
     
     @property
     def file_iterator(self):
@@ -386,8 +393,8 @@ class Handler:
         # if the full path is a file, serve it; else, either serve directory html
         # if directories are exposed, or throw a 403
         if path.is_file:
-            # throw 403 if the path is above the mounting path in the filesystem 
-            if path.is_above(self.path):
+            # throw 403 if the path is above the mounting path in the filesystem
+            if path.is_above(self.path) and self.path != path:
                 raise ForbiddenHandler()
             # set etag header and check if client has cached this content
             if path.etag in request.cache.if_none_match:

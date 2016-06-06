@@ -79,3 +79,15 @@ class ServerErrorHandler(Handler):
         response.body.html = template.format(
             status=response.status, message=message, traceback=traceback
         )
+
+
+class PermanentRedirectHandler(Handler):
+    
+    def __init__(self, **url_components_to_replace):
+        super(PermanentRedirectHandler, self).__init__()
+        self.url_components_to_replace = url_components_to_replace
+        
+    def __call__(self, request, response, configuration):
+        response.status_code = 301
+        redirect_to = request.url.replace(**self.url_components_to_replace)
+        response.headers['Location'] = redirect_to

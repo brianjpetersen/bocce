@@ -5,6 +5,10 @@ import collections
 import collections.abc
 import datetime
 import json
+import multiprocessing
+import threading
+import traceback
+import time
 # third party libraries
 pass
 # first party libraries
@@ -14,34 +18,77 @@ pass
 __where__ = os.path.dirname(os.path.abspath(__file__))
 
 
+class repeat(threading.Thread):
+    
+    def __init__(self, function, period, how='thread', on_error=None,
+                 args=None, kwargs=None):
+        super(repeat, self).__init__(daemon=True)
+        if args is None:
+            args = ()
+        if kwargs is None:
+            kwargs = {}
+        if on_error is None:
+            def on_error(exception):
+                traceback.print_exc()
+                print()
+        def wrapped():
+            try:
+                function(*args, **kwargs)
+            except Exception as exception:
+                on_error(exception)
+        self.function = wrapped
+        self.period = period
+        if how == 'thread':
+            self.How = threading.Thread
+        elif how == 'process':
+            self.How = multiprocessing.Process
+        self.terminated = False
+        self.start()
+            
+    def run(self):
+        while self.terminated == False:
+            start = time.time()
+            runner = self.How(target=self.function)
+            runner.start()
+            runner.join()
+            duration = time.time() - start
+            if duration < self.period:
+                time.sleep(self.period - duration)
+    
+    def terminate(self):
+        self.terminated = True
+
+
 def cached_getter(allow_get=True, allow_set=True, allow_delete=True):
     
     class Wrapper:
         
-        __slots__ = ('getter', 'name', 'value', )
+        __slots__ = ('getter', 'name', 'cached_name', )
         
         def __init__(self, getter):
             self.getter = getter
             self.name = getter.__name__
+            self.cached_name = '_cached_{}'.format(self.name)
         
-        def __get__(self, obj, type=None):
+        def __get__(self, instance, owner=None):
             if self.allow_get == False:
                 raise AttributeError
             try:
-                return self.value
+                return getattr(instance, self.cached_name)
             except:
-                self.value = self.getter(obj)
-                return self.value
+                value = self.getter(instance)
+                setattr(instance, self.cached_name, value)
+                return value
         
-        def __set__(self, obj, value):
+        def __set__(self, instance, value):
             if self.allow_set == False:
                 raise AttributeError
-            self.value = value
+            setattr(instance, self.cached_name, value)
         
-        def __delete__(self, obj):
+        def __delete__(self, instance):
             if self.allow_delete == False:
                 raise AttributeError
-            delattr(obj, self.name)
+            delattr(instance, self.cached_name)
     
     Wrapper.allow_get = allow_get
     Wrapper.allow_set = allow_set
@@ -50,6 +97,7 @@ def cached_getter(allow_get=True, allow_set=True, allow_delete=True):
     return Wrapper
 
 
+"""
 def cached_setter(allow_get=True, set_once=False, allow_delete=True):
     
     class Wrapper:
@@ -81,6 +129,7 @@ def cached_setter(allow_get=True, set_once=False, allow_delete=True):
     Wrapper.set_once = set_once
     
     return Wrapper
+"""
 
 
 def once(f):

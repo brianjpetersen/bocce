@@ -58,3 +58,5 @@ target/
 
 #
 **/.bocce/**
+
+.DS_Store

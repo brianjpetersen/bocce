@@ -135,6 +135,9 @@ class JsonBody(collections.OrderedDict):
         super(JsonBody, self).__init__()
         if serializers is None:
             serializers = {}
+            serializers[surly.Url] = lambda url: str(url)
+            serializers[tuple] = lambda tuple: list(tuple)
+            serializers[set] = lambda set: list(set)
             serializers[datetime.date] = lambda date: date.isoformat()
             serializers[datetime.datetime] = lambda datetime: datetime.isoformat()
             serializers[bytes] = lambda bytes: bytes.decode(charset)
@@ -158,17 +161,19 @@ class JsonBody(collections.OrderedDict):
         # attempt to compress
         compression_threshold = getattr(self, '_compression_threshold', 128)
         compression_level = getattr(self, '_compression_level', 2)
-        if self.content_encoding == 'gzip' and len(content) >= compression_threshold:
+        compression_requested = getattr(self, '_compression_requested', False)
+        if compression_requested and len(content) >= compression_threshold:
             compressed_content = io.BytesIO()
             with gzip.GzipFile(fileobj=compressed_content, mode='wb', compresslevel=compression_level) as f:
                 f.write(content)
             content = compressed_content.getvalue()
+            self.content_encoding = 'gzip'
         return content
     
     def compress(self, level=2, threshold=128):
         self._compression_level = level
         self._compression_threshold = threshold
-        self.content_encoding = 'gzip'
+        self._compression_requested = True
     
     @property
     def wsgi(self):
