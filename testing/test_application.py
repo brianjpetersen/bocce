@@ -66,7 +66,7 @@ s = bocce.static.Handler(path, expose_directory=True, clean=True)
 stop = datetime.datetime.now()
 print((stop - start).total_seconds())
 
-path = os.path.join(__where__, 'static', 'routing.md')
+path = os.path.join(__where__, 'static', 'assets', 'jquery.js')
 s1 = bocce.static.Handler(path)
 
 

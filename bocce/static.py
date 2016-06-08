@@ -283,8 +283,9 @@ class CachedPath(Path):
     
     @property
     def cache_stale(self):
-        os_size = getattr(self._stats, 'st_size', None)
-        os_last_modified = getattr(self._stats, 'st_mtime', None)
+        _stats = os.stat(self.path)
+        os_size = getattr(_stats, 'st_size', None)
+        os_last_modified = getattr(_stats, 'st_mtime', None)
         fresh = os_size == self.size and os_last_modified == self.last_modified
         return not fresh
     
@@ -380,6 +381,8 @@ class Handler:
         # construct full path, joining with any included as part of url
         if self.path.is_file:
             path = self.path
+            if path.cache_stale:
+                path.update_cache()
         else:
             subpath = request.segments.get('path', None)
             if subpath is None:
