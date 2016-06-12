@@ -2,7 +2,7 @@
 import os
 import collections.abc
 import collections
-import http.cookies
+#import http.cookies
 # third party libraries
 pass
 # first party libraries
@@ -19,9 +19,25 @@ class RequestCookies(collections.abc.Mapping):
     
     @classmethod
     def from_header(cls, header):
-        parsed_cookies = http.cookies.SimpleCookie()
-        parsed_cookies.load(header)
-        cookies = {key: value.value for key, value in parsed_cookies.items()}
+        #parsed_cookies = http.cookies.SimpleCookie()
+        #parsed_cookies.load(header)
+        #cookies = {key: value.value for key, value in parsed_cookies.items()}
+        cookies = {}
+        for cookie in header.split(';'):
+            cookie = cookie.strip(' ')
+            morsels = cookie.split('=')
+            if len(morsels) == 0:
+                continue
+            elif len(morsels) == 1:
+                key = morsels[0]
+                value = None
+            else:
+                key = morsels[0].strip()
+                value = '='.join(morsels[1:])
+            key = key.strip()
+            if value is not None:
+                value = value.strip()
+            cookies[key] = value
         return cls(**cookies)
     
     def __getitem__(self, key):
