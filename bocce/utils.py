@@ -47,13 +47,16 @@ class repeat(threading.Thread):
             
     def run(self):
         while self.terminated == False:
-            start = time.time()
-            runner = self.How(target=self.function)
-            runner.start()
-            runner.join()
-            duration = time.time() - start
-            if duration < self.period:
-                time.sleep(self.period - duration)
+            try:
+                start = time.time()
+                runner = self.How(target=self.function)
+                runner.start()
+                runner.join()
+                duration = time.time() - start
+                if duration < self.period:
+                    time.sleep(self.period - duration)
+            except:
+                continue
     
     def terminate(self):
         self.terminated = True
