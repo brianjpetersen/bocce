@@ -92,10 +92,10 @@ class Route:
         pointy_segment = match['pointy_segment']
         if curly_segment is not None:
             self._number_curly_segments += 1
-            return '(?P<{}>[^/]*?)'.format(curly_segment)
+            return '(?P<{}>[^/]+)'.format(curly_segment)
         elif pointy_segment is not None:
             self._number_pointy_segments += 1
-            return '(?P<{}>.*)'.format(pointy_segment)
+            return '(?P<{}>.+)'.format(pointy_segment)
         else:
             raise ValueError # should never happen
     

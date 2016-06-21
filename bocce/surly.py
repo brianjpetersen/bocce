@@ -215,7 +215,11 @@ def construct_url(host=None, path=None, scheme=None, query_string=None,
     if host is not None:
         url += host
     if port is not None:
-        url += ':{}'.format(port)
+        port_http = (scheme == 'http' and port == 80)
+        port_https = (scheme == 'https' and port == 443)
+        port_is_redundant = port_http or port_https
+        if port_is_redundant == False:
+            url += ':{}'.format(port)
     if path is not None:
         if path.startswith('/'):
             url += path
