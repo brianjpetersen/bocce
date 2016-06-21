@@ -67,6 +67,7 @@ class Application:
                 except:
                     continue
             self.log(request, response, configuration)
+            print('start')
             return response.start(start_response)
     
     def configure(self):

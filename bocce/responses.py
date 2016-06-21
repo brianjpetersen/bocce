@@ -146,6 +146,15 @@ class JsonBody(collections.OrderedDict):
         self.charset = charset
         self.content_type = 'application/json; charset={}'.format(charset)
         self.content_encoding = None
+        self._cached_content = None
+    
+    def __setitem__(self, *args, **kwargs):
+        self._cached_content = None
+        super(JsonBody, self).__setitem__(*args, **kwargs)
+        
+    def __getitem__(self, *args, **kwargs):
+        self._cached_content = None
+        return super(JsonBody, self).__getitem__(*args, **kwargs)
     
     @property
     def content_length(self):
@@ -153,9 +162,8 @@ class JsonBody(collections.OrderedDict):
     
     @property
     def content(self):
-        # this is a naive implementation; ideally, would cache the 
-        # content, and if appropriate the compressed content, and 
-        # would clear the cache upon a change to the underlying dict
+        if self._cached_content is not None:
+            return self._cached_content
         encoder = utils.JsonEncoder(self.indent, self.serializers)
         content = encoder.encode(self).encode(self.charset)
         # attempt to compress
@@ -168,9 +176,11 @@ class JsonBody(collections.OrderedDict):
                 f.write(content)
             content = compressed_content.getvalue()
             self.content_encoding = 'gzip'
+        self._cached_content = content
         return content
     
     def compress(self, level=2, threshold=128):
+        self._cached_content = None
         self._compression_level = level
         self._compression_threshold = threshold
         self._compression_requested = True
