@@ -8,6 +8,7 @@ import gzip
 import mimetypes
 import datetime
 # third party libraries
+import numpy
 import werkzeug
 # first party libraries
 from . import (surly, utils, headers, cookies, )
@@ -141,6 +142,7 @@ class JsonBody(collections.OrderedDict):
             serializers[datetime.date] = lambda date: date.isoformat()
             serializers[datetime.datetime] = lambda datetime: datetime.isoformat()
             serializers[bytes] = lambda bytes: bytes.decode(charset)
+            serializers[numpy.ndarray] = lambda array: array.tolist()
         self.serializers = serializers
         self.indent = indent
         self.charset = charset
