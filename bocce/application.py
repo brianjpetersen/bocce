@@ -4,6 +4,7 @@ import traceback
 import warnings
 import logging
 import signal
+import sys
 # third party libraries
 import cherrypy
 # first party libraries
