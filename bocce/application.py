@@ -3,6 +3,7 @@ import os
 import traceback
 import warnings
 import logging
+import signal
 # third party libraries
 import cherrypy
 # first party libraries
@@ -104,10 +105,10 @@ class Application:
             self.logger.error(exception_details)
     
     def enable_logging(self, handler=logging.StreamHandler(), level=logging.INFO):
-        self.logger.addHandler(handler)
         handler.setLevel(level)
+        self.logger.addHandler(handler)
     
-    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
+    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, ), redirect_to=None):
         
         if tuple(cherrypy.__version__.split('.')) < ('3', '8', '0'):
             warnings.warn(
@@ -118,6 +119,14 @@ class Application:
         cherrypy.tree.graft(self, '/')
         cherrypy.server.unsubscribe()
         
+        # ignore hangup signal (why on earth is the default to kill on hup?)
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
+        if redirect_to is not None:
+            f = open(redirect_to, 'wb')
+            sys.stdout = f
+            sys.stderr = f
+
         when = utils.When.timestamp()
         pid = str(os.getpid())
         self.logger.info(
@@ -152,7 +161,7 @@ class Application:
         cherrypy.log.access_log.setLevel(logging.ERROR)
         cherrypy.log.error_log.setLevel(logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
-        
+
         try:
             cherrypy.engine.start()
             cherrypy.engine.block()
