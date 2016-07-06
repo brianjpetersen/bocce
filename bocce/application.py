@@ -27,7 +27,7 @@ class Application:
         self.server_error_handler = exceptions.ServerErrorHandler(debug=False)
         # logging
         self.logger = logging.getLogger('bocce')
-        self.logger.addHandler(logging.NullHandler())
+        #self.logger.addHandler(logging.NullHandler())
         self.logger.setLevel(logging.INFO)
     
     def __call__(self, environment, start_response):
@@ -123,6 +123,7 @@ class Application:
             os._exit(0)
         os.chdir('/')
         os.umask(0)
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
         stdin = open(stdin, 'r')
         stdout = open(stdout, 'a+')
         stderr = open(stderr, 'a+')
