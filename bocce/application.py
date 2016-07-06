@@ -109,7 +109,7 @@ class Application:
         handler.setLevel(level)
         self.logger.addHandler(handler)
     
-    def daemonize(self, stdin=os.devnull, stdout=os.devnull, stdin=os.devnull):
+    def daemonize(self, stdin=os.devnull, stdout=os.devnull, stderr=os.devnull):
         sys.stdout.flush()
         sys.stderr.flush()
         pid = os.fork()
