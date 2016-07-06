@@ -109,7 +109,28 @@ class Application:
         handler.setLevel(level)
         self.logger.addHandler(handler)
     
-    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, ), redirect_to=None):
+    def daemonize(self, stdin=os.devnull, stdout=os.devnull, stdin=os.devnull):
+        sys.stdout.flush()
+        sys.stderr.flush()
+        pid = os.fork()
+        if pid > 0:
+            # this is the parent process
+            os._exit(0)
+        os.setsid()
+        pid = os.fork()
+        if pid > 0:
+            # this is the parent process
+            os._exit(0)
+        os.chdir('/')
+        os.umask(0)
+        stdin = open(stdin, 'r')
+        stdout = open(stdout, 'a+')
+        stderr = open(stderr, 'a+')
+        os.dup2(stdin.fileno(), sys.stdin.fileno())
+        os.dup2(stdout.fileno(), sys.stdout.fileno())
+        os.dup2(stderr.fileno(), sys.stderr.fileno())
+        
+    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
         
         if tuple(cherrypy.__version__.split('.')) < ('3', '8', '0'):
             warnings.warn(
@@ -119,14 +140,6 @@ class Application:
         
         cherrypy.tree.graft(self, '/')
         cherrypy.server.unsubscribe()
-        
-        # ignore hangup signal (why on earth is the default to kill on hup?)
-        signal.signal(signal.SIGHUP, signal.SIG_IGN)
-
-        if redirect_to is not None:
-            f = open(redirect_to, 'wb')
-            sys.stdout = f
-            sys.stderr = f
 
         when = utils.When.timestamp()
         pid = str(os.getpid())
