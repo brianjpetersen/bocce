@@ -149,6 +149,9 @@ class JsonBody(collections.OrderedDict):
         self.content_type = 'application/json; charset={}'.format(charset)
         self.content_encoding = None
         self._cached_content = None
+        self._compression_level = None
+        self._compression_threshold = None
+        self._compression_requested = False
     
     def __setitem__(self, *args, **kwargs):
         self._cached_content = None
@@ -230,9 +233,18 @@ class Body:
         return self._iterable
     
     def set_json(self, value=None, charset='utf-8', indent=None, serializers=None):
+        previous_json_body = getattr(self, '_iterable', None)
         if value is None:
             value = {}
         self._iterable = JsonBody(charset, indent, serializers)
+        if previous_json_body is not None:
+            if isinstance(previous_json_body, JsonBody):
+                level = previous_json_body._compression_level
+                threshold = previous_json_body._compression_threshold
+                requested = previous_json_body._compression_requested
+                self._iterable._compression_level = level
+                self._iterable._compression_threshold = threshold
+                self._iterable._compression_requested = requested
         self._iterable.update(value)
     
     def set_html(self, html, charset='utf-8'):
