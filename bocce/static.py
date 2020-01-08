@@ -8,7 +8,7 @@ import mimetypes
 import sqlite3
 import concurrent.futures as futures
 # third party libraries
-pass
+import bleach
 # first party libraries
 from . import (exceptions, responses, middleware, )
 
@@ -157,7 +157,7 @@ class NotFoundHandler(exceptions.Handler):
         message = 'The requested URL /{} was not found on this server.'
         message = message.format(request.url.path)
         response.body.html = exception_template.format(
-            status=response.status, message=message,
+            status=response.status, message=bleach.clean(message),
         )
         response.enable_compression(request)
 
@@ -173,7 +173,7 @@ class MethodNotAllowedHandler(exceptions.Handler):
            'on this server.'
         message = message.format(request.http.method, request.url.path)
         response.body.html = exception_template.format(
-            status=response.status, message=message,
+            status=response.status, message=bleach.clean(message),
         )
 
 
@@ -186,7 +186,7 @@ class ForbiddenHandler(exceptions.Handler):
         message = 'Access to the requested URL {} is forbidden on this server.'
         message = message.format(request.url.path)
         response.body.html = exception_template.format(
-            status=response.status, message=message,
+            status=response.status, message=bleach.clean(message),
         )
 
 
@@ -216,10 +216,16 @@ class Path:
         return self.__class__(os.path.join(self.path, *p))
     
     def is_below(self, other):
-        return self.path.startswith(os.path.normpath(other.path))
+        #return self.path.startswith(os.path.normpath(other.path))
+        return not self.is_above(other)
     
     def is_above(self, other):
-        return os.path.normpath(other.path).startswith(self.path)
+        #return os.path.normpath(other.path).startswith(self.path)
+        other = os.path.realpath(other.path)
+        path = os.path.realpath(self.path)
+        common = os.path.commonpath([path, other])
+        is_above = len(common) == len(other)
+        return not is_above
     
     def __eq__(self, other):
         return os.path.normpath(self.path) == os.path.normpath(other.path)
@@ -397,8 +403,9 @@ class Handler:
         # if directories are exposed, or throw a 403
         if path.is_file:
             # throw 403 if the path is above the mounting path in the filesystem
-            if path.is_above(self.path) and self.path != path:
-                raise ForbiddenHandler()
+            if path.is_above(self.path):# and self.path != path:
+                #raise ForbiddenHandler()
+                raise NotFoundHandler()
             # set etag header and check if client has cached this content
             if path.etag in request.cache.if_none_match:
                 raise NotModifiedHandler()
@@ -437,6 +444,7 @@ class Handler:
                     render_directory_template(path.path, request.url.path)
                 )
             else:
-                raise ForbiddenHandler()
+                #raise ForbiddenHandler()
+                raise NotFoundHandler()
         else:
             raise NotFoundHandler()

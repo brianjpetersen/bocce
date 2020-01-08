@@ -2,7 +2,7 @@
 import os
 import abc
 # third party libraries
-pass
+import bleach
 # first party libraries
 from . import (responses, )
 
@@ -44,6 +44,13 @@ template = \
 '''
 
 
+def format_template(**kwargs):
+    for k, v in kwargs.items():
+        v = bleach.clean(v)
+        kwargs[k] = v
+    return template.format(**kwargs)
+
+
 class Handler(Exception, metaclass=abc.ABCMeta):
     
     def __init__(self):
@@ -60,7 +67,7 @@ class NotFoundHandler(Handler):
         response.status_code = 404
         message = 'The requested URL /{} for method {} was not found on this server.'
         message = message.format(request.url.path, request.http.method)
-        response.body.html = template.format(
+        response.body.html = format_template(
             status=response.status, message=message, traceback=''
         )
 
@@ -76,7 +83,7 @@ class ServerErrorHandler(Handler):
         message = 'An unknown server error has occurred.'
         if self.debug and traceback is not None:
             traceback = '<pre id="traceback">{}</pre>'.format(traceback)
-        response.body.html = template.format(
+        response.body.html = format_template(
             status=response.status, message=message, traceback=traceback
         )
 

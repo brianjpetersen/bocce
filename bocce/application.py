@@ -131,7 +131,7 @@ class Application:
         os.dup2(stdout.fileno(), sys.stdout.fileno())
         os.dup2(stderr.fileno(), sys.stderr.fileno())
         
-    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, )):
+    def serve(self, interfaces=({'host': '127.0.0.1', 'port': 8080}, ), drop_privileges=True):
         
         if tuple(cherrypy.__version__.split('.')) < ('3', '8', '0'):
             warnings.warn(
@@ -176,6 +176,15 @@ class Application:
         cherrypy.log.access_log.setLevel(logging.ERROR)
         cherrypy.log.error_log.setLevel(logging.ERROR)
         cherrypy.engine.autoreload.unsubscribe()
+
+        if drop_privileges:
+            uid = int(os.environ['SUDO_UID'])
+            gid = int(os.environ['SUDO_GID'])
+            if uid == 0:
+                uid = 1000
+            if gid == 0:
+                gid = 1000
+            cherrypy.process.plugins.DropPrivileges(cherrypy.engine, uid=uid, gid=gid).subscribe()
 
         try:
             cherrypy.engine.start()
